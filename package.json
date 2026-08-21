@@ -1,0 +1,320 @@
+{
+  "name": "lean-quota-monitor",
+  "displayName": "Lean Quota Monitor",
+  "description": "Minimal VS Code status bar monitor for AI quotas, credits, and loose custom status commands.",
+  "icon": "images/icon.png",
+  "version": "0.1.0",
+  "publisher": "nicezic",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nicezic/lean-quota-monitor.git"
+  },
+  "homepage": "https://github.com/nicezic/lean-quota-monitor#readme",
+  "bugs": {
+    "url": "https://github.com/nicezic/lean-quota-monitor/issues"
+  },
+  "sponsor": {
+    "url": "https://github.com/sponsors/nicezic"
+  },
+  "engines": {
+    "node": ">=24 <25",
+    "vscode": "^1.96.0"
+  },
+  "packageManager": "pnpm@11.22.0",
+  "extensionKind": [
+    "workspace"
+  ],
+  "categories": [
+    "Visualization"
+  ],
+  "keywords": [
+    "ai",
+    "quota",
+    "usage",
+    "status bar",
+    "codex",
+    "claude",
+    "gemini",
+    "minimax",
+    "kimi",
+    "glm",
+    "openrouter"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "leanQuotaMonitor.openMonitor",
+        "title": "Lean Quota Monitor: Open Monitor"
+      },
+      {
+        "command": "leanQuotaMonitor.refresh",
+        "title": "Lean Quota Monitor: Refresh"
+      }
+    ],
+    "configuration": [
+      {
+        "title": "Lean Quota Monitor: General",
+        "order": 10,
+        "properties": {
+          "leanQuotaMonitor.refreshIntervalSeconds": {
+            "type": "number",
+            "minimum": 60,
+            "maximum": 3600,
+            "default": 300,
+            "description": "Refresh interval in seconds.",
+            "order": 10
+          },
+          "leanQuotaMonitor.providerOrder": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "default": [
+              "openai",
+              "anthropic",
+              "gemini",
+              "minimax",
+              "kimi",
+              "zai",
+              "openrouter"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "uniqueItems": true,
+            "description": "Display order for built-in and custom providers. Edit this setting in settings.json; Hover arrow controls update it automatically.",
+            "order": 20
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Codex",
+        "order": 20,
+        "properties": {
+          "leanQuotaMonitor.openaiName": {
+            "type": "string",
+            "default": "Codex",
+            "description": "Display name shown in hover details for OpenAI Codex quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.openaiLabel": {
+            "type": "string",
+            "default": "GPT",
+            "description": "Status bar name for OpenAI Codex quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.openaiVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show OpenAI Codex quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Claude",
+        "order": 30,
+        "properties": {
+          "leanQuotaMonitor.anthropicName": {
+            "type": "string",
+            "default": "Claude",
+            "description": "Display name shown in hover details for Anthropic Claude quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.anthropicLabel": {
+            "type": "string",
+            "default": "CLA",
+            "description": "Status bar name for Anthropic Claude quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.anthropicVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Anthropic Claude quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Gemini",
+        "order": 40,
+        "properties": {
+          "leanQuotaMonitor.geminiName": {
+            "type": "string",
+            "default": "Gemini",
+            "description": "Display name shown in hover details for Google Gemini quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.geminiLabel": {
+            "type": "string",
+            "default": "AGY",
+            "description": "Status bar name for Gemini quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.geminiVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Gemini quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: MiniMax",
+        "order": 50,
+        "properties": {
+          "leanQuotaMonitor.minimaxName": {
+            "type": "string",
+            "default": "MiniMax",
+            "description": "Display name shown in hover details for MiniMax quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.minimaxLabel": {
+            "type": "string",
+            "default": "M3",
+            "description": "Status bar name for MiniMax quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.minimaxVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show MiniMax quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Kimi",
+        "order": 60,
+        "properties": {
+          "leanQuotaMonitor.kimiName": {
+            "type": "string",
+            "default": "Kimi",
+            "description": "Display name shown in hover details for Kimi Code quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.kimiLabel": {
+            "type": "string",
+            "default": "KIMI",
+            "description": "Status bar name for Kimi Code quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.kimiVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Kimi Code quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Z.AI / GLM",
+        "order": 70,
+        "properties": {
+          "leanQuotaMonitor.zaiName": {
+            "type": "string",
+            "default": "Z.AI / GLM",
+            "description": "Display name shown in hover details for Z.AI GLM Coding Plan quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.zaiLabel": {
+            "type": "string",
+            "default": "GLM",
+            "description": "Status bar name for Z.AI GLM Coding Plan quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.zaiVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Z.AI GLM Coding Plan quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: OpenRouter",
+        "order": 80,
+        "properties": {
+          "leanQuotaMonitor.openrouterName": {
+            "type": "string",
+            "default": "OpenRouter",
+            "description": "Display name shown in hover details for OpenRouter credits.",
+            "order": 10
+          },
+          "leanQuotaMonitor.openrouterLabel": {
+            "type": "string",
+            "default": "OR",
+            "description": "Status bar name for OpenRouter remaining credits.",
+            "order": 20
+          },
+          "leanQuotaMonitor.openrouterVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show OpenRouter remaining credits in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Custom Providers",
+        "order": 90,
+        "properties": {
+          "leanQuotaMonitor.customProviders": {
+            "type": "object",
+            "default": {},
+            "scope": "machine",
+            "description": "Custom Providers. Key = Provider Name; label = Status Bar Name; script stdout = Status Output. Scripts must exit 0 and print exactly one non-empty Status Output without the Status Bar Name; rendered Status Bar text is capped at 10 characters.",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "label",
+                "script"
+              ],
+              "properties": {
+                "label": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Status Bar Name. The script stdout is the Status Output and must not repeat this name."
+                },
+                "script": {
+                  "type": "string",
+                  "minLength": 1,
+                  "description": "Executable script path; no shell command or arguments."
+                },
+                "visible": {
+                  "type": "boolean",
+                  "default": true,
+                  "description": "Show this custom provider in the Status Bar. Hover and Quick Pick remain visible."
+                }
+              },
+              "additionalProperties": false
+            },
+            "order": 10
+          }
+        }
+      }
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "lint": "biome check src tests package.json biome.json",
+    "lint:fix": "biome check --write src tests package.json biome.json",
+    "hooks:install": "git config core.hooksPath .githooks",
+    "check": "pnpm run lint && pnpm test && pnpm run compile && pnpm run typecheck:tests",
+    "typecheck:tests": "tsc -p tests/tsconfig.json",
+    "test": "node --test tests/*.test.ts",
+    "package:vsix": "bash scripts/package-vsix.sh"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.9",
+    "@types/node": "^24",
+    "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.9.2",
+    "typescript": "^7"
+  }
+}

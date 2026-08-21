@@ -1,0 +1,17 @@
+node_modules/**
+.vscode/**
+src/**
+tests/**
+scripts/**
+docs/**
+.githooks/**
+.github/**
+biome.json
+**/*.map
+tsconfig.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+.gitignore
+CONTEXT.md
+*.vsix
+.local/**
