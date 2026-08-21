@@ -1,0 +1,22 @@
+# Lean Quota Monitor Domain Glossary
+
+- **Provider** — A monitored AI service represented by Lean Quota Monitor.
+- **Built-in Provider** — A Provider whose acquisition and normalization are implemented by the extension.
+- **Custom Provider** — A Provider whose displayed value is supplied by a user-configured executable script.
+- **Provider Name** — The user-facing Provider name shown in Hover and Quick Pick. For a Custom Provider, it is also the configuration identity key.
+- **Status Bar Name** — The short label shown before a Provider value in the Status Bar.
+- **Status Output** — The opaque, single-line value returned by a Custom Provider script.
+- **Refresh** — The action that obtains a Provider's latest data and replaces its current runtime result.
+- **Acquisition Path** — One verified way to obtain data with the same Provider Snapshot semantics.
+- **Acquisition Paths** — The ordered set of Acquisition Paths for a Built-in Provider. Order expresses preference; `Fallback` is not a separate domain entity.
+- **Provider Snapshot** — The normalized result of a successful Built-in Provider refresh at a point in time.
+- **Quota Snapshot** — A Provider Snapshot expressed as reset-window quota usage and remaining percentage.
+- **Credit Snapshot** — A Provider Snapshot expressed as monetary credit totals, usage, and remaining credit.
+- **Remaining Credit** — The product-facing remaining monetary balance of a Credit Snapshot.
+- **Provider State** — The current runtime outcome for a Provider: current snapshot or current error, update time, and successful acquisition path when available.
+- **Provider Error** — A Built-in acquisition failure, optionally classified with a stable diagnostic code and safe detail.
+- **Redacted Debug Info** — Diagnostic metadata that excludes raw provider payloads and credentials.
+- **Healthy Provider** — A Provider whose latest refresh succeeded.
+- **Errored Provider** — A Provider whose latest refresh failed.
+- **Troubleshoot** — The Provider recovery surface organized by setup methods.
+- **Provider Plan** — A Built-in Provider's acquisition and recovery plan for the current Extension Host context.
