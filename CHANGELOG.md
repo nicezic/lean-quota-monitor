@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 - 2026-08-22
+
+- Add GitHub Actions CI.
+
 ## 0.1.0 - 2026-08-22
 
 - Initial public release.

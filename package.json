@@ -3,7 +3,7 @@
   "displayName": "Lean Quota Monitor",
   "description": "Minimal VS Code status bar monitor for AI quotas, credits, and loose custom status commands.",
   "icon": "images/icon.png",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "nicezic",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
