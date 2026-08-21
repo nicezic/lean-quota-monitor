@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+mapfile -d '' staged < <(
+  git diff --cached --name-only --diff-filter=ACMR -z -- \
+    'src/**/*.ts' \
+    'tests/**/*.ts' \
+    'package.json' \
+    'biome.json'
+)
+
+if ((${#staged[@]} > 0)); then
+  declare -A unstaged=()
+  while IFS= read -r -d '' file; do
+    unstaged["$file"]=1
+  done < <(git diff --name-only --diff-filter=ACMR -z)
+
+  for file in "${staged[@]}"; do
+    if [[ -n "${unstaged[$file]:-}" ]]; then
+      echo "pre-commit: partially staged file cannot be auto-fixed safely: $file" >&2
+      echo "Run 'pnpm run lint:fix', review, then stage the intended file again." >&2
+      exit 1
+    fi
+  done
+
+  pnpm exec biome check --write "${staged[@]}"
+  git add -- "${staged[@]}"
+fi
+
+pnpm test
+pnpm run compile
+git diff --cached --check
