@@ -1,0 +1,43 @@
+name: Publish VS Code extension
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to VS Code Marketplace
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up pnpm
+        uses: pnpm/setup@v2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check and compile
+        run: pnpm run check
+
+      - name: Publish extension
+        run: pnpm exec vsce publish --no-dependencies
+        env:
+          VSCE_PAT: ${{ secrets.AZURE_PAT_PERSONAL_ACCESS_TOKENS }}
