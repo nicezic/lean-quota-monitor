@@ -23,6 +23,7 @@ Quota providers show the **Weekly remaining percentage** and reset countdown. Cr
 | Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
 | Z.AI / GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
 | OpenRouter Credit | `OR` | Management Key in VS Code SecretStorage | |
+| OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / Week / Month windows |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
@@ -56,6 +57,7 @@ For extension-owned keys, open **Troubleshoot**, choose the Provider and its set
 | Kimi | Kimi Code API Key |
 | Z.AI / GLM | Z.AI Coding Plan API Key |
 | OpenRouter | OpenRouter Management Key |
+| OpenCode Go | OpenCode Go API Key |
 
 The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs. Healthy key-backed Providers can also replace their key from Configure.
 

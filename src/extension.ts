@@ -1255,6 +1255,7 @@ export function activate(context: vscode.ExtensionContext): void {
         event.affectsConfiguration('leanQuotaMonitor.kimiLabel') ||
         event.affectsConfiguration('leanQuotaMonitor.zaiLabel') ||
         event.affectsConfiguration('leanQuotaMonitor.openrouterLabel') ||
+        event.affectsConfiguration('leanQuotaMonitor.opencodeLabel') ||
         event.affectsConfiguration('leanQuotaMonitor.openaiName') ||
         event.affectsConfiguration('leanQuotaMonitor.anthropicName') ||
         event.affectsConfiguration('leanQuotaMonitor.geminiName') ||
@@ -1262,13 +1263,15 @@ export function activate(context: vscode.ExtensionContext): void {
         event.affectsConfiguration('leanQuotaMonitor.kimiName') ||
         event.affectsConfiguration('leanQuotaMonitor.zaiName') ||
         event.affectsConfiguration('leanQuotaMonitor.openrouterName') ||
+        event.affectsConfiguration('leanQuotaMonitor.opencodeName') ||
         event.affectsConfiguration('leanQuotaMonitor.openaiVisible') ||
         event.affectsConfiguration('leanQuotaMonitor.anthropicVisible') ||
         event.affectsConfiguration('leanQuotaMonitor.geminiVisible') ||
         event.affectsConfiguration('leanQuotaMonitor.minimaxVisible') ||
         event.affectsConfiguration('leanQuotaMonitor.kimiVisible') ||
         event.affectsConfiguration('leanQuotaMonitor.zaiVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.openrouterVisible')
+        event.affectsConfiguration('leanQuotaMonitor.openrouterVisible') ||
+        event.affectsConfiguration('leanQuotaMonitor.opencodeVisible')
       ) {
         render();
       }

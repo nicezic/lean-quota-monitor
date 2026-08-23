@@ -5,7 +5,8 @@ export type ProviderId =
   | 'minimax'
   | 'kimi'
   | 'zai'
-  | 'openrouter';
+  | 'openrouter'
+  | 'opencode';
 
 export interface QuotaWindow {
   label: string;

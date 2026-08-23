@@ -15,6 +15,7 @@ Built-in providers:
 - Kimi Code
 - Z.AI / GLM Coding Plan
 - OpenRouter Credit
+- OpenCode Go
 
 Custom Providers are intentionally outside this contract. They are opaque executable status sources and own their own credentials; see [`adr/0001-live-status-and-native-management.md`](adr/0001-live-status-and-native-management.md).
 
@@ -40,7 +41,7 @@ ProviderSnapshot
 
 `QuotaSnapshot` represents reset-window subscription limits. `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
-Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, and Z.AI return `QuotaSnapshot`; OpenRouter returns `CreditSnapshot`.
+Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, and OpenCode Go return `QuotaSnapshot`; OpenRouter returns `CreditSnapshot`.
 
 Numeric normalization is **presence-sensitive**:
 
@@ -64,13 +65,14 @@ MiniMax    minimax-token-plan-api
 Kimi       kimi-api-key
 Z.AI       zai-quota-api
 OpenRouter openrouter-credits-api
+OpenCode   opencode-go-usage-api
 ```
 
 These ids are runtime diagnostic metadata, not user-facing Provider identities.
 
 ### Extension-owned API keys
 
-MiniMax, Kimi, Z.AI, and OpenRouter use API keys owned by this extension. Their setup flow is shared:
+MiniMax, Kimi, Z.AI, OpenRouter, and OpenCode Go use API keys owned by this extension. Their setup flow is shared:
 
 ```text
 Troubleshoot (first-time setup / recovery)
@@ -520,6 +522,60 @@ Official references:
 
 - https://openrouter.ai/docs/api/api-reference/credits/get-credits
 - https://openrouter.ai/docs/guides/overview/auth/management-api-keys
+
+---
+
+## OpenCode Go
+
+Implementation: `src/providers/opencode.ts`.
+
+### Credential authority
+
+OpenCode Go quota monitoring uses an **OpenCode Go API Key** stored in VS Code `SecretStorage`. The key is issued by the OpenCode console at `https://opencode.ai/zen` after subscribing to Go. A Zen pay-as-you-go key without a Go subscription is a valid key but returns an entitlement error.
+
+### Quota request
+
+```text
+GET https://opencode.ai/zen/go/v1/usage
+Authorization: Bearer <OpenCode Go API Key>
+```
+
+HTTP timeout: 15 seconds.
+
+### Parse / normalize
+
+Source fields:
+
+```text
+usage.rolling.percent / resetsAt
+usage.weekly.percent / resetsAt
+usage.monthly.percent / resetsAt
+```
+
+`percent` is the used percent of the dollar-value limit ($12 rolling 5h, $30 weekly, $60 monthly).
+
+Normalization:
+
+```text
+rolling  → label 5h
+weekly   → label Week
+monthly  → label Month
+
+percent
+  → clamp 0..100
+  → usedPercent
+  → remainingPercent = 100 - usedPercent
+
+resetsAt (ISO 8601 string) → Date
+```
+
+Each window is normalized independently; the valid subset is retained. `status: "rate-limited"` still yields a valid window (`usedPercent` 100 from the source value). A response with no valid window raises `SCHEMA_CHANGED`.
+
+The usage endpoint is not part of the official public OpenCode API documentation; it is the same endpoint the OpenCode console serves. Shape changes are treated as `SCHEMA_CHANGED`.
+
+Official reference:
+
+- https://opencode.ai/docs/go/
 
 ---
 

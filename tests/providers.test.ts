@@ -5,6 +5,7 @@ import { parseAgyQuota } from '../src/providers/gemini.ts';
 import { parseKimiQuota } from '../src/providers/kimi.ts';
 import { parseMiniMaxQuota } from '../src/providers/minimax.ts';
 import { parseCodexAppServerRateLimits, parseCodexDirectQuota } from '../src/providers/openai.ts';
+import { parseOpenCodeGoUsage } from '../src/providers/opencode.ts';
 import { parseOpenRouterCredits } from '../src/providers/openrouter.ts';
 import { parseZaiQuota } from '../src/providers/zai.ts';
 
@@ -190,6 +191,40 @@ test('parses OpenRouter remaining credits', () => {
 test('OpenRouter rejects invalid numeric fields with SCHEMA_CHANGED', () => {
   assert.throws(
     () => parseOpenRouterCredits({ data: {} }),
+    (error) => {
+      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
+      return true;
+    },
+  );
+});
+
+test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
+  const snapshot = parseOpenCodeGoUsage({
+    usage: {
+      rolling: { status: 'ok', percent: 25, resetsAt: '2026-08-24T12:00:00.000Z' },
+      weekly: { status: 'ok', percent: 52.5, resetsAt: '2026-08-28T00:00:00.000Z' },
+      monthly: { status: 'rate-limited', percent: 100, resetsAt: '2026-09-01T00:00:00.000Z' },
+    },
+  });
+
+  assert.equal(snapshot.kind, 'quota');
+  assert.deepEqual(
+    snapshot.windows.map((x) => [x.label, x.usedPercent, x.remainingPercent]),
+    [
+      ['5h', 25, 75],
+      ['Week', 52.5, 47.5],
+      ['Month', 100, 0],
+    ],
+  );
+  assert.equal(
+    snapshot.windows[0].resetAt?.toISOString(),
+    new Date('2026-08-24T12:00:00.000Z').toISOString(),
+  );
+});
+
+test('OpenCode Go response without valid windows reports SCHEMA_CHANGED', () => {
+  assert.throws(
+    () => parseOpenCodeGoUsage({ usage: { rolling: { status: 'ok' } } }),
     (error) => {
       assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
       return true;

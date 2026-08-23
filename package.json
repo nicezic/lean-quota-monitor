@@ -39,7 +39,8 @@
     "minimax",
     "kimi",
     "glm",
-    "openrouter"
+    "openrouter",
+    "opencode"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -81,7 +82,8 @@
               "minimax",
               "kimi",
               "zai",
-              "openrouter"
+              "openrouter",
+              "opencode"
             ],
             "items": {
               "type": "string"
@@ -256,6 +258,30 @@
             "type": "boolean",
             "default": true,
             "description": "Show OpenRouter remaining credits in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: OpenCode Go",
+        "order": 85,
+        "properties": {
+          "leanQuotaMonitor.opencodeName": {
+            "type": "string",
+            "default": "OpenCode Go",
+            "description": "Display name shown in hover details for OpenCode Go quota.",
+            "order": 10
+          },
+          "leanQuotaMonitor.opencodeLabel": {
+            "type": "string",
+            "default": "OCG",
+            "description": "Status bar name for OpenCode Go quota.",
+            "order": 20
+          },
+          "leanQuotaMonitor.opencodeVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show OpenCode Go quota in the Status Bar. Hover details remain visible.",
             "order": 30
           }
         }
