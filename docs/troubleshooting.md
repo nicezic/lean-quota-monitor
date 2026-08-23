@@ -171,7 +171,7 @@ Set up any one method.
 Lean Quota Monitor uses the first one that works.
 ```
 
-For an available plan, selecting a method shows only that method's setup, actual lookup target, and current failure. **Setup Method ↔ Acquisition Path is a 1:1 diagnostic mapping**: an aggregate Provider error may summarize that several paths failed, but it must never replace, merge, or rewrite an individual path failure. An unsupported plan has no Acquisition Path; Troubleshoot shows its Provider-level setup guidance directly. For SecretStorage-backed methods, the same method detail also offers the Set / Replace Key action so a failed or first-time Provider can be recovered without going through Configure.
+For an available plan, selecting a method shows only that method's setup, actual lookup target, and current failure. **Each Setup Method shows exactly one Acquisition Path.** An aggregate Provider error may summarize that several paths failed, but it must never replace, merge, or rewrite an individual path failure. An unsupported plan has no Acquisition Path; Troubleshoot shows its Provider-level setup guidance directly. For SecretStorage-backed methods, the same method detail also offers the Set / Replace Key action so a failed or first-time Provider can be recovered without going through Configure.
 
 Example:
 

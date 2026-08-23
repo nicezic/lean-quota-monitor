@@ -43,7 +43,7 @@ ProviderSnapshot
 
 Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, and OpenCode Go return `QuotaSnapshot`; OpenRouter returns `CreditSnapshot`.
 
-Numeric normalization is **presence-sensitive**:
+A number must actually be present in the response. A missing value is never treated as zero:
 
 ```text
 actual 0 / supported numeric "0" → valid zero
@@ -390,7 +390,7 @@ Authorization: Bearer <Kimi Code API Key>
 
 HTTP timeout: 15 seconds.
 
-Kimi's official membership documentation defines a shared weekly Kimi Code quota plus a rolling 5-hour window, shared across CLI, VS Code, API Keys, and third-party tools. The `/coding/v1/usages` route and response shape are implemented from current maintained monitor evidence; Kimi does not currently publish this route as a stable public usage API reference in the documentation used for this integration.
+Kimi's official membership documentation defines a shared weekly Kimi Code quota plus a rolling 5-hour window, shared across CLI, VS Code, API Keys, and third-party tools. The `/coding/v1/usages` route and response shape are based on currently maintained third-party monitors. Kimi does not publish this route as a stable public usage API.
 
 ### Parse / normalize
 

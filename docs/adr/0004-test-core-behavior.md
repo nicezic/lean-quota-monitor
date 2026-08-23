@@ -5,7 +5,7 @@
 
 ## Decision
 
-Test the product at its core behavior boundaries:
+Test what the product really does, not how the code is written inside.
 
 ```text
 External Provider Response
@@ -22,16 +22,15 @@ External Provider Response
        ┌──┴──┐
        ↓     ↓
    Monitor  Refresh / Order
-
-Core feature tests
-════════════════════════════════
-exercise these boundaries end-to-end
-and cover the helpers inside them
 ```
 
-Higher-level feature tests should cover the lower-level helpers and behavior they depend on. Do not create a direct unit test for every helper.
+Rules:
 
-Coverage numbers are not a target.
+- One test set per boundary above. A higher-level test also covers the helpers inside it. Do not write one test per helper.
+- Provider responses: use one real successful response per acquisition path. The test proves that this real response becomes the expected snapshot.
+- Do not invent broken responses (null, missing fields, wrong types, out-of-range numbers) to test the parser's defenses.
+- Exception: when the provider contract itself defines a distinct behavior for a broken response (example: `SCHEMA_CHANGED`), keep one test for that behavior.
+- Coverage numbers are not a target.
 
 ## Why
 
