@@ -971,6 +971,10 @@ export function activate(context: vscode.ExtensionContext): void {
 
   async function openRefreshIntervalPicker(): Promise<void> {
     const presets = [60, 120, 300, 600, 1800, 3600];
+    const validSeconds = (input: string): number | undefined => {
+      const parsed = Number(input);
+      return Number.isInteger(parsed) && parsed >= 60 && parsed <= 3600 ? parsed : undefined;
+    };
     const presetLabel = (seconds: number): string =>
       seconds % 3600 === 0 ? `${seconds / 3600}h` : `${seconds / 60}m`;
     const current = refreshIntervalSeconds();
@@ -1002,16 +1006,15 @@ export function activate(context: vscode.ExtensionContext): void {
         prompt: 'Whole number between 60 and 3600.',
         placeholder: '300',
         validate: (input) => {
-          const parsed = Number(input);
-          if (!Number.isInteger(parsed) || parsed < 60 || parsed > 3600) {
+          if (validSeconds(input) === undefined) {
             return 'Enter a whole number between 60 and 3600.';
           }
           return undefined;
         },
       });
       if (result.action !== 'accept') return;
-      const parsed = Number(result.value);
-      if (Number.isInteger(parsed) && parsed >= 60 && parsed <= 3600) {
+      const parsed = validSeconds(result.value);
+      if (parsed !== undefined) {
         if (parsed !== current) await updateRefreshIntervalSeconds(parsed);
         return;
       }

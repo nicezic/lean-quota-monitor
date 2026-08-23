@@ -51,6 +51,8 @@ missing / null / blank             → invalid, never zero
 NaN / non-numeric / out of range   → invalid, never zero
 ```
 
+When a Provider section below documents **clamping** for a numeric field, the documented clamp replaces the out-of-range rejection for that field.
+
 A valid zero remaining allowance is a successful snapshot and means the quota or credit is actually exhausted. It must not be confused with missing data. When a quota Provider exposes several supported windows, each window is normalized independently; the valid subset is retained, and `SCHEMA_CHANGED` is raised only when no supported valid window remains.
 
 Acquisition is **current-data only**. Each Built-in Provider uses an ordered list of verified `Acquisition Paths`; a path is eligible only when it produces the same Provider Snapshot semantics. Refresh stops at the first successful path and becomes Errored only when every configured path fails. A previous successful snapshot does not make a currently failing Provider healthy. Live Status Bar/Hover presentation semantics are defined by ADR 0001.
@@ -538,9 +540,12 @@ OpenCode Go quota monitoring uses an **OpenCode Go API Key** stored in VS Code `
 ```text
 GET https://opencode.ai/zen/go/v1/usage
 Authorization: Bearer <OpenCode Go API Key>
+User-Agent: lean-quota-monitor
 ```
 
 HTTP timeout: 15 seconds.
+
+Failure classification: HTTP 401 raises `KEY_INVALID`; HTTP 403 raises `PLAN_REQUIRED`; other HTTP failures stay unclassified.
 
 ### Parse / normalize
 

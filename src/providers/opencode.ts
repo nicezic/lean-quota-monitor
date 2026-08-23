@@ -3,7 +3,6 @@ import { ProviderError } from '../provider-error.ts';
 import type { QuotaSnapshot, QuotaWindow } from '../types';
 
 interface OpenCodeGoUsageWindow {
-  status?: string;
   percent?: number;
   resetsAt?: string;
 }
@@ -60,6 +59,12 @@ export async function fetchOpenCodeGoUsage(apiKey: string): Promise<QuotaSnapsho
     },
     signal: AbortSignal.timeout(15_000),
   });
+  if (response.status === 401) {
+    throw new ProviderError('KEY_INVALID', 'OpenCode Go API key rejected');
+  }
+  if (response.status === 403) {
+    throw new ProviderError('PLAN_REQUIRED', 'OpenCode Go subscription required');
+  }
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   return parseOpenCodeGoUsage((await response.json()) as OpenCodeGoUsageResponse);
 }

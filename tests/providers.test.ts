@@ -201,9 +201,9 @@ test('OpenRouter rejects invalid numeric fields with SCHEMA_CHANGED', () => {
 test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
   const snapshot = parseOpenCodeGoUsage({
     usage: {
-      rolling: { status: 'ok', percent: 25, resetsAt: '2026-08-24T12:00:00.000Z' },
-      weekly: { status: 'ok', percent: 52.5, resetsAt: '2026-08-28T00:00:00.000Z' },
-      monthly: { status: 'rate-limited', percent: 100, resetsAt: '2026-09-01T00:00:00.000Z' },
+      rolling: { percent: 25, resetsAt: '2026-08-24T12:00:00.000Z' },
+      weekly: { percent: 52.5, resetsAt: '2026-08-28T00:00:00.000Z' },
+      monthly: { percent: 100, resetsAt: '2026-09-01T00:00:00.000Z' },
     },
   });
 
@@ -220,11 +220,19 @@ test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
     snapshot.windows[0].resetAt?.toISOString(),
     new Date('2026-08-24T12:00:00.000Z').toISOString(),
   );
+  assert.equal(
+    snapshot.windows[1].resetAt?.toISOString(),
+    new Date('2026-08-28T00:00:00.000Z').toISOString(),
+  );
+  assert.equal(
+    snapshot.windows[2].resetAt?.toISOString(),
+    new Date('2026-09-01T00:00:00.000Z').toISOString(),
+  );
 });
 
 test('OpenCode Go response without valid windows reports SCHEMA_CHANGED', () => {
   assert.throws(
-    () => parseOpenCodeGoUsage({ usage: { rolling: { status: 'ok' } } }),
+    () => parseOpenCodeGoUsage({ usage: { rolling: {} } }),
     (error) => {
       assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
       return true;
