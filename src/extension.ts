@@ -59,7 +59,14 @@ type MonitorItem = vscode.QuickPickItem & {
 };
 
 type ConfigureItem = vscode.QuickPickItem & {
-  action?: 'back' | 'builtin' | 'custom' | 'add-custom' | 'troubleshoot' | 'open-settings';
+  action?:
+    | 'back'
+    | 'builtin'
+    | 'custom'
+    | 'add-custom'
+    | 'troubleshoot'
+    | 'open-settings'
+    | 'refresh-interval';
   providerKey?: string;
 };
 
@@ -746,6 +753,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const setBuiltInSecret = async (id: ProviderId): Promise<boolean> => {
     const secret = builtInProvider(id).secret;
     if (!secret) return false;
+    const displayName = configuredDisplayName(id, builtInProvider(id).displayNameFallback);
 
     const value = await vscode.window.showInputBox({
       title: secret.title,
@@ -758,6 +766,15 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!key) return false;
     await context.secrets.store(secret.storageKey, key);
     await refreshBuiltIn(id, 'rerun');
+    if (providerHasCurrentData(states[id])) {
+      void vscode.window.showInformationMessage(`${displayName}: key stored · refresh OK`);
+      return true;
+    }
+    void vscode.window.showWarningMessage(
+      `${displayName}: key stored · refresh failed: ${providerErrorSummary(
+        states[id].error ?? new Error('Unknown error'),
+      )}`,
+    );
     return true;
   };
 
@@ -923,6 +940,12 @@ export function activate(context: vscode.ExtensionContext): void {
 
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({
+      label: '$(watch) Refresh Interval',
+      description: `${refreshIntervalSeconds()}s`,
+      action: 'refresh-interval',
+      alwaysShow: true,
+    });
+    items.push({
       label: '$(tools) Troubleshoot',
       action: 'troubleshoot',
       alwaysShow: true,
@@ -935,7 +958,67 @@ export function activate(context: vscode.ExtensionContext): void {
     return items;
   };
 
-  async function openBuiltInTroubleshoot(id: ProviderId): Promise<void> {
+  const refreshIntervalSeconds = () =>
+    vscode.workspace
+      .getConfiguration('leanQuotaMonitor')
+      .get<number>('refreshIntervalSeconds', 300);
+
+  const updateRefreshIntervalSeconds = async (seconds: number) => {
+    await vscode.workspace
+      .getConfiguration('leanQuotaMonitor')
+      .update('refreshIntervalSeconds', seconds, vscode.ConfigurationTarget.Global);
+  };
+
+  async function openRefreshIntervalPicker(): Promise<void> {
+    const presets = [60, 120, 300, 600, 1800, 3600];
+    const presetLabel = (seconds: number): string =>
+      seconds % 3600 === 0 ? `${seconds / 3600}h` : `${seconds / 60}m`;
+    const current = refreshIntervalSeconds();
+    const items: (vscode.QuickPickItem & { seconds?: number; custom?: boolean })[] = [
+      { label: '$(arrow-left) Back', alwaysShow: true },
+      ...presets.map((seconds) => ({
+        label: presetLabel(seconds),
+        description: `${seconds} seconds${seconds === current ? ' · current' : ''}`,
+        seconds,
+      })),
+      { label: '$(edit) Custom…', custom: true, alwaysShow: true },
+    ];
+
+    for (;;) {
+      const selected = await vscode.window.showQuickPick(items, {
+        title: 'Lean Quota Monitor · Refresh Interval',
+        placeHolder: 'How often all Providers refresh automatically.',
+        ignoreFocusOut: true,
+      });
+      if (!selected) return;
+      if (selected.seconds !== undefined) {
+        if (selected.seconds !== current) await updateRefreshIntervalSeconds(selected.seconds);
+        return;
+      }
+      if (!selected.custom) return;
+
+      const result = await showInputWithBack({
+        title: 'Refresh Interval · seconds',
+        prompt: 'Whole number between 60 and 3600.',
+        placeholder: '300',
+        validate: (input) => {
+          const parsed = Number(input);
+          if (!Number.isInteger(parsed) || parsed < 60 || parsed > 3600) {
+            return 'Enter a whole number between 60 and 3600.';
+          }
+          return undefined;
+        },
+      });
+      if (result.action !== 'accept') return;
+      const parsed = Number(result.value);
+      if (Number.isInteger(parsed) && parsed >= 60 && parsed <= 3600) {
+        if (parsed !== current) await updateRefreshIntervalSeconds(parsed);
+        return;
+      }
+    }
+  }
+
+  async function openBuiltInTroubleshoot(id: ProviderId): Promise<'fixed' | undefined> {
     const provider = builtInProvider(id);
     const plan = providerPlans[id];
 
@@ -1021,7 +1104,7 @@ export function activate(context: vscode.ExtensionContext): void {
         );
         if (selectedAction === action) {
           const changed = await setBuiltInSecret(id);
-          if (changed && providerHasCurrentData(states[id])) return;
+          if (changed && providerHasCurrentData(states[id])) return 'fixed';
         }
         continue;
       }
@@ -1081,7 +1164,13 @@ export function activate(context: vscode.ExtensionContext): void {
       if (!selected || selected.action === 'back') return;
       if (!selected.action) return;
       if (selected.action === 'provider' && selected.providerId) {
-        await openBuiltInTroubleshoot(selected.providerId);
+        const fixed = await openBuiltInTroubleshoot(selected.providerId);
+        if (fixed === 'fixed') {
+          const remaining =
+            PROVIDERS.some(({ id }) => states[id].error) ||
+            Object.keys(configuredCustomProviders()).some((name) => customStates[name]?.error);
+          if (!remaining) return;
+        }
         continue;
       }
       if (selected.action === 'custom-edit' && selected.customName) {
@@ -1120,6 +1209,10 @@ export function activate(context: vscode.ExtensionContext): void {
       }
       if (selected.action === 'add-custom') {
         await addCustomProvider();
+        continue;
+      }
+      if (selected.action === 'refresh-interval') {
+        await openRefreshIntervalPicker();
         continue;
       }
       if (selected.action === 'troubleshoot') {
