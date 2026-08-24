@@ -40,7 +40,15 @@
     "kimi",
     "glm",
     "openrouter",
-    "opencode"
+    "opencode",
+    "opencode go",
+    "openai",
+    "anthropic",
+    "antigravity",
+    "z.ai",
+    "credits",
+    "subscription",
+    "subscribe"
   ],
   "activationEvents": [
     "onStartupFinished"
