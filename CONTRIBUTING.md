@@ -61,7 +61,7 @@ Custom Provider stdout remains an opaque status value unless a deliberate produc
 
 ### Scope discipline
 
-Prefer the smallest coherent change. Avoid speculative fallback/recovery trees, generic frameworks, or unrelated cleanup unless the contribution actually requires them.
+Prefer the smallest self-contained change. Avoid speculative fallback/recovery trees, generic frameworks, or unrelated cleanup unless the contribution actually requires them.
 
 ## Before submitting
 

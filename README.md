@@ -14,7 +14,7 @@ Quota providers show the **Weekly remaining percentage** and reset countdown. Cr
 
 ## Built-in Providers
 
-| Company | Provider | Status Bar | Setup authority | Etc |
+| Company | Provider | Status Bar | Setup authority | Notes |
 | --- | --- | --- | --- | --- |
 | OpenAI | Codex | `GPT` | Local Codex login | 5h limit officially lifted for now |
 | Anthropic | Claude | `CLA` | Local Claude Code OAuth login | |
@@ -45,7 +45,7 @@ Troubleshoot
 
 A Built-in disappears from the live/management surfaces when its latest refresh fails and remains available in **Troubleshoot** until one acquisition path works again. A healthy Provider can still be hidden from the Status Bar with its visibility setting without disabling refresh.
 
-Status Bar click itself is inert. Hover provides Quick Configure, Settings, Troubleshoot, Refresh, visibility, and ordering controls.
+Clicking the Status Bar itself does nothing. Hover provides Quick Configure, Settings, Troubleshoot, Refresh, visibility, and ordering controls.
 
 ## Provider setup
 

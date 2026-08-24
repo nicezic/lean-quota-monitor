@@ -56,17 +56,17 @@ Those files own product facts. This prompt owns the contribution process; do not
 
 When the design depends on current external behavior—VS Code, Node, a Provider API/CLI, authentication, schema, maintained libraries, or another project—verify current primary sources before implementing.
 
-Prefer official documentation, source code, specifications, and maintained upstream repositories. Distinguish verified facts from inference. Do not create speculative fallback/recovery paths merely because they might help.
+Prefer official documentation, source code, specifications, and maintained upstream repositories. Distinguish verified facts from inference. Do not create speculative fallback/recovery paths just because they might help.
 
 Ask the user only for genuine product decisions or unavailable credentials/permissions, not facts the environment or primary sources can answer.
 
-**Done when:** every external assumption that materially affects the implementation is either verified or explicitly marked unresolved.
+**Done when:** every external assumption that significantly affects the implementation is either verified or explicitly marked unresolved.
 
-## 3. Design the smallest coherent change
+## 3. Design the smallest self-contained change
 
 Prefer direct, observable behavior over generic frameworks or speculative abstraction.
 
-Before implementation, check that the proposed change fits the existing module/seam rather than duplicating logic across UI, Provider, and diagnostic layers.
+Before implementation, check that the proposed change fits the existing module boundaries rather than duplicating logic across UI, Provider, and diagnostic layers.
 
 For Built-in Provider work, preserve the existing normalized snapshot boundary and keep acquisition behavior with the Provider rather than leaking raw Provider shapes into presentation code.
 
@@ -78,7 +78,7 @@ If the request exposes a hard-to-reverse and surprising trade-off with real alte
 
 ## 4. Implement with a tight feedback loop
 
-1. Make the smallest coherent change that satisfies the acceptance criteria. Do not introduce unrelated runtime changes merely to make the contribution look larger.
+1. Make the smallest self-contained change that satisfies the acceptance criteria. Do not introduce unrelated runtime changes just to make the contribution look larger.
 2. Add or update focused regression tests when observable runtime behavior changes. Match validation to the kind of change being made.
 3. Run the narrowest useful test/typecheck/lint/document loop while editing.
 4. Keep credentials and raw sensitive Provider data out of logs, rendered UI, fixtures, commits, and PR text.
@@ -117,11 +117,11 @@ Review the final diff from a fixed point (normally the branch merge-base or the 
 
 - Does the diff respect the repository's documented architecture, security, Provider, troubleshooting, test, and documentation contracts?
 - Is the same rule or logic duplicated across files when one authority/module should own it?
-- Did the change introduce speculative generality, unnecessary fallback paths, or unrelated cleanup?
+- Did the change introduce unnecessary generality, speculative fallback paths, or unrelated cleanup?
 
-If independent subagents/reviewers are available, use separate fresh-context reviews for the two axes. Otherwise perform two separate review passes yourself. Fix material findings, rerun affected checks, then review the final diff again.
+If independent subagents/reviewers are available, use separate fresh-context reviews for the two axes. Otherwise perform two separate review passes yourself. Fix major findings, rerun affected checks, then review the final diff again.
 
-**Done when:** both Spec and Standards reviews have no unresolved material finding.
+**Done when:** both Spec and Standards reviews have no unresolved major findings.
 
 ## 7. Prepare a clean contribution
 
@@ -156,7 +156,7 @@ If push/PR creation is impossible because authentication, remote permissions, or
 
 ## Completion contract
 
-A contribution is not complete merely because code was written.
+A contribution is not complete just because code was written.
 
 Complete means:
 

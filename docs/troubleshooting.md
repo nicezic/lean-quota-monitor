@@ -132,7 +132,7 @@ Conceptually, failures fall into:
 
 Do not guess. For example, a generic `401` is not automatically `Expired`, because it may also mean invalid/revoked credentials.
 
-`SCHEMA_CHANGED` fails closed: do not guess new field positions, fabricate windows, or silently convert an unknown shape to zero.
+`SCHEMA_CHANGED` fails closed: do not guess new field positions, invent windows, or silently convert an unknown shape to zero.
 
 ## 3. Actual Lookup Target
 
@@ -189,7 +189,7 @@ Codex
 └─ Redacted Debug Info
 ```
 
-An exhausted valid quota is a valid Provider snapshot with zero remaining allowance; it is not an acquisition failure merely because the value is zero.
+An exhausted valid quota is a valid Provider snapshot with zero remaining allowance; it is not an acquisition failure just because the value is zero.
 
 ### Codex: 5-hour limit not shown
 

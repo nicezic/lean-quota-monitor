@@ -253,7 +253,7 @@ Implementation: `src/providers/gemini.ts`
 
 ### Credential authority
 
-The extension does not own a Gemini credential. Authentication and subscription entitlement remain inside the installed **AGY CLI**. The official AGY CLI supports macOS/Linux and native Windows and uses the system keyring / Google Sign-In flow, so Lean Quota Monitor only requires the `agy` executable to be resolvable by the active Extension Host.
+The extension does not own a Gemini credential. Authentication and subscription status remain inside the installed **AGY CLI**. The official AGY CLI supports macOS/Linux and native Windows and uses the system keyring / Google Sign-In flow, so Lean Quota Monitor only requires the `agy` executable to be findable by the active Extension Host.
 
 Required executable:
 
@@ -343,7 +343,7 @@ end_time
 weekly_end_time
 ```
 
-MiniMax can return quota for multiple models. The extension independently selects the **most consumed model** for each window — equivalently, the model with the lowest remaining percentage.
+MiniMax can return quota for multiple models. The extension independently selects the **most consumed model** for each window — in other words, the model with the lowest remaining percentage.
 
 ```text
 interval models
@@ -533,7 +533,7 @@ Implementation: `src/providers/opencode.ts`.
 
 ### Credential authority
 
-OpenCode Go quota monitoring uses an **OpenCode Go API Key** stored in VS Code `SecretStorage`. The key is issued by the OpenCode console at `https://opencode.ai/zen` after subscribing to Go. A Zen pay-as-you-go key without a Go subscription is a valid key but returns an entitlement error.
+OpenCode Go quota monitoring uses an **OpenCode Go API Key** stored in VS Code `SecretStorage`. The key is issued by the OpenCode console at `https://opencode.ai/zen` after subscribing to Go. A Zen pay-as-you-go key without a Go subscription is a valid key but returns a subscription-required error.
 
 ### Quota request
 
