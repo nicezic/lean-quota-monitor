@@ -14,16 +14,16 @@ Quota providers show the **Weekly remaining percentage** and reset countdown. Cr
 
 ## Built-in Providers
 
-| Provider | Status Bar | Setup authority | Etc |
-| --- | --- | --- | --- |
-| OpenAI Codex | `GPT` | Local Codex login | 5h limit officially lifted for now |
-| Anthropic Claude | `CLA` | Local Claude Code OAuth login | |
-| Google Gemini / Antigravity | `AGY` | AGY CLI `/quota` | |
-| MiniMax Token Plan | `M3` | Token Plan API Key in VS Code SecretStorage | |
-| Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
-| Z.AI / GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
-| OpenRouter Credit | `OR` | Management Key in VS Code SecretStorage | |
-| OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / Week / Month windows |
+| Company | Provider | Status Bar | Setup authority | Etc |
+| --- | --- | --- | --- | --- |
+| OpenAI | Codex | `GPT` | Local Codex login | 5h limit officially lifted for now |
+| Anthropic | Claude | `CLA` | Local Claude Code OAuth login | |
+| Google | Gemini / Antigravity | `AGY` | AGY CLI `/quota` | |
+| MiniMax | Token Plan | `M3` | Token Plan API Key in VS Code SecretStorage | |
+| Moonshot AI | Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
+| Z.AI | GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
+| OpenRouter | Credit | `OR` | Management Key in VS Code SecretStorage | |
+| Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / Week / Month windows |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
