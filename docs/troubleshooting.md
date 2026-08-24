@@ -116,7 +116,12 @@ KEY_INVALID
 PLAN_REQUIRED
 QUOTA_EXHAUSTED
 SCHEMA_CHANGED
+SCRIPT_NOT_FOUND
+SCRIPT_FAILED
+SCRIPT_BAD_OUTPUT
 ```
+
+`SCRIPT_*` codes classify Custom Provider script failures: the script does not exist (`SCRIPT_NOT_FOUND`), it exited abnormally or was killed (`SCRIPT_FAILED`), or its stdout is not exactly one non-empty line (`SCRIPT_BAD_OUTPUT`). Script failure details use exit code or signal only; raw stderr is never collected.
 
 Conceptually, failures fall into:
 

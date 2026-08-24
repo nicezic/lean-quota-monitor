@@ -2,6 +2,7 @@ import { execFile } from 'node:child_process';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { promisify } from 'node:util';
+import { ProviderError } from './provider-error.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +38,7 @@ export function normalizeCustomProviders(configured: Record<string, unknown>): C
 
 export function resolveCustomScriptPath(scriptPath: string): string {
   const value = scriptPath.trim();
-  if (!value) throw new Error('Script Path is empty');
+  if (!value) throw new ProviderError('SCRIPT_NOT_FOUND', 'Script Path is empty');
   if (value === '~') return os.homedir();
   if (value.startsWith('~/')) return path.join(os.homedir(), value.slice(2));
   return value;
@@ -45,8 +46,10 @@ export function resolveCustomScriptPath(scriptPath: string): string {
 
 export function parseCustomOutput(stdout: string): string {
   const value = stdout.trim();
-  if (!value) throw new Error('Script returned empty stdout');
-  if (/\r|\n/.test(value)) throw new Error('Script must return exactly one line');
+  if (!value) throw new ProviderError('SCRIPT_BAD_OUTPUT', 'Script returned empty stdout');
+  if (/\r|\n/.test(value)) {
+    throw new ProviderError('SCRIPT_BAD_OUTPUT', 'Script must return exactly one line');
+  }
   return value;
 }
 
@@ -61,11 +64,31 @@ export function formatCustomStatus(label: string, output: string): string {
   return truncateCustomStatus(prefix ? `${prefix} ${output}` : output);
 }
 
+function classifyScriptFailure(error: unknown, resolvedPath: string): ProviderError {
+  const code = (error as { code?: unknown } | null)?.code;
+  if (code === 'ENOENT') {
+    return new ProviderError('SCRIPT_NOT_FOUND', 'Not Found', resolvedPath);
+  }
+  if (typeof code === 'number') {
+    return new ProviderError('SCRIPT_FAILED', `Script failed with exit code ${code}`);
+  }
+  const signal = (error as { signal?: unknown } | null)?.signal;
+  if (typeof signal === 'string') {
+    return new ProviderError('SCRIPT_FAILED', `Script failed with signal ${signal}`);
+  }
+  return new ProviderError('SCRIPT_FAILED', 'Script failed before producing output');
+}
+
 export async function runCustomScript(scriptPath: string): Promise<string> {
   const resolvedPath = resolveCustomScriptPath(scriptPath);
-  const { stdout } = await execFileAsync(resolvedPath, [], {
-    timeout: 20_000,
-    maxBuffer: 64 * 1024,
-  });
+  let stdout: string;
+  try {
+    ({ stdout } = await execFileAsync(resolvedPath, [], {
+      timeout: 20_000,
+      maxBuffer: 64 * 1024,
+    }));
+  } catch (error) {
+    throw classifyScriptFailure(error, resolvedPath);
+  }
   return parseCustomOutput(stdout);
 }

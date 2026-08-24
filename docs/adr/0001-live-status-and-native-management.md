@@ -5,7 +5,7 @@
 
 ## Decision
 
-A Provider is Healthy only when its latest refresh succeeds. A previous success is not shown as current health after a failed refresh.
+A Provider is Healthy only when its latest refresh succeeds; after a failed refresh, the previous success is not shown as current health.
 
 ```text
 latest refresh
@@ -17,8 +17,6 @@ latest refresh
 ```
 
 Failed or not-yet-configured Built-in Providers stay out of the normal live/configuration surfaces and remain reachable through Troubleshoot.
-
-This keeps the monitor compact and prevents stale success from being presented as current status.
 
 Use native VS Code surfaces while they are sufficient:
 
@@ -44,3 +42,9 @@ Provider Name
 ```
 
 The extension does not interpret Custom Provider output as quota, credit, balance, spend, or another domain value. The script keeps ownership of its credentials.
+
+## Why
+
+Showing the last success as current health would present stale status as live data. Keeping failed Providers in Troubleshoot keeps the monitor compact.
+
+Native VS Code surfaces avoid a custom UI layer while they cover every interaction the monitor needs.

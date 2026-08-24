@@ -5,7 +5,10 @@ export type ProviderErrorCode =
   | 'KEY_INVALID'
   | 'PLAN_REQUIRED'
   | 'QUOTA_EXHAUSTED'
-  | 'SCHEMA_CHANGED';
+  | 'SCHEMA_CHANGED'
+  | 'SCRIPT_NOT_FOUND'
+  | 'SCRIPT_FAILED'
+  | 'SCRIPT_BAD_OUTPUT';
 
 export class ProviderError extends Error {
   readonly code: ProviderErrorCode;

@@ -9,7 +9,7 @@ Install development dependencies without version suffixes so pnpm selects the la
 
 Refresh all direct development dependencies together. Do not intentionally leave one behind except `@types/node`.
 
-The Node.js type package is installed with the only version-qualified command:
+The Node.js type package is installed with the only pinned version:
 
 ```bash
 pnpm add --save-dev @types/node@24

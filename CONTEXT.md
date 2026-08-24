@@ -14,7 +14,7 @@
 - **Credit Snapshot** — A Provider Snapshot expressed as monetary credit totals, usage, and remaining credit.
 - **Remaining Credit** — The product-facing remaining monetary balance of a Credit Snapshot.
 - **Provider State** — The current runtime outcome for a Provider: current snapshot or current error, update time, and successful acquisition path when available.
-- **Provider Error** — A Built-in acquisition failure, optionally classified with a stable diagnostic code and safe detail.
+- **Provider Error** — An acquisition failure of a Built-in or Custom Provider, optionally classified with a stable diagnostic code and safe detail.
 - **Redacted Debug Info** — Diagnostic metadata that excludes raw provider payloads and credentials.
 - **Healthy Provider** — A Provider whose latest refresh succeeded.
 - **Errored Provider** — A Provider whose latest refresh failed.
