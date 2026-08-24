@@ -1,7 +1,7 @@
 {
   "name": "lean-quota-monitor",
   "displayName": "Lean Quota Monitor",
-  "description": "Minimal VS Code status bar monitor for AI quotas, credits, and loose custom status commands.",
+  "description": "Minimal yet powerful monitor for AI subscription quotas and credits in the VS Code Status Bar — Codex, Claude, Gemini, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, plus customizable script status.",
   "icon": "images/icon.png",
   "version": "0.1.1",
   "publisher": "nicezic",
@@ -47,13 +47,15 @@
     "anthropic",
     "antigravity",
     "z.ai",
-    "google",
-    "google ai",
+    "claude code",
+    "kimi code",
     "moonshot",
     "anomaly",
+    "quota monitor",
+    "usage tracker",
+    "wsl",
     "credits",
-    "subscription",
-    "subscribe"
+    "subscription"
   ],
   "activationEvents": [
     "onStartupFinished"
