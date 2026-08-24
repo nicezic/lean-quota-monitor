@@ -3,7 +3,7 @@
   "displayName": "Lean Quota Monitor",
   "description": "Minimal yet powerful monitor for AI subscription quotas and credits in the VS Code Status Bar — Codex, Claude, Gemini, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, plus customizable script status.",
   "icon": "images/icon.png",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "nicezic",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
