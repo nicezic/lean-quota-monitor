@@ -7,10 +7,10 @@ Lean Quota Monitor is a small VS Code extension that keeps current AI subscripti
 ![Lean Quota Monitor](.github/assets/lean-quota-monitor.png)
 
 ```text
-GPT 99% ↻6d │ AGY 98% ↻3d │ M3 99% ↻23h │ OR $74.75
+GPT 99% 1w 6d │ AGY 98% 1w 3d │ M3 99% 1w 23h │ OR $74.75
 ```
 
-Quota providers show the **Weekly remaining percentage** and reset countdown. Credit providers show **Remaining Credit**.
+Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), and reset countdown. Credit providers show **Remaining Credit**.
 
 ## Built-in Providers
 
@@ -23,7 +23,7 @@ Quota providers show the **Weekly remaining percentage** and reset countdown. Cr
 | Moonshot AI | Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
 | Z.AI | GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
 | OpenRouter | Credit | `OR` | Management Key in VS Code SecretStorage | |
-| Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / Week / Month windows |
+| Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / 1w / 1m windows |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
@@ -49,7 +49,7 @@ Clicking the Status Bar itself does nothing. Hover provides Quick Configure, Set
 
 ## Provider setup
 
-For extension-owned keys, open **Troubleshoot**, choose the Provider and its setup method, then use the direct **Set / Replace Key** action.
+For first-time setup of extension-owned keys, if the Provider is not visible, open **Troubleshoot**, choose the Provider and its setup method, then use the direct **Set / Replace Key** action. Once the Provider is working, use **Configure → Provider** to replace its key or change its display settings.
 
 | Provider | Setup method |
 | --- | --- |
@@ -59,7 +59,7 @@ For extension-owned keys, open **Troubleshoot**, choose the Provider and its set
 | OpenRouter | OpenRouter Management Key |
 | OpenCode Go | OpenCode Go API Key |
 
-The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs. Healthy key-backed Providers can also replace their key from Configure.
+The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs.
 
 Codex, Claude, and AGY reuse their existing local login/CLI authority. Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
 

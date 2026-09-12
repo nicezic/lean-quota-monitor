@@ -11,6 +11,7 @@
 - **Acquisition Paths** — The ordered set of Acquisition Paths for a Built-in Provider. Order expresses preference; `Fallback` is not a separate domain entity.
 - **Provider Snapshot** — The normalized result of a successful Built-in Provider refresh at a point in time.
 - **Quota Snapshot** — A Provider Snapshot expressed as reset-window quota usage and remaining percentage.
+- **Window Type** — A canonical duration category for a Quota Snapshot window (`5hour`, `1day`, `1week`, `1month`).
 - **Credit Snapshot** — A Provider Snapshot expressed as monetary credit totals, usage, and remaining credit.
 - **Remaining Credit** — The product-facing remaining monetary balance of a Credit Snapshot.
 - **Provider State** — The current runtime outcome for a Provider: current snapshot or current error, update time, and successful acquisition path when available.

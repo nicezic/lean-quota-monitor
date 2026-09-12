@@ -53,7 +53,7 @@ let refreshTimer: NodeJS.Timeout | undefined;
 let displayTimer: NodeJS.Timeout | undefined;
 
 type MonitorItem = vscode.QuickPickItem & {
-  action?: 'builtin' | 'custom' | 'refresh-all' | 'configure' | 'close';
+  action?: 'builtin' | 'custom' | 'refresh-all' | 'configure' | 'troubleshoot' | 'close';
   providerId?: ProviderId;
   customName?: string;
 };
@@ -65,8 +65,8 @@ type ConfigureItem = vscode.QuickPickItem & {
     | 'custom'
     | 'add-custom'
     | 'troubleshoot'
-    | 'open-settings'
-    | 'refresh-interval';
+    | 'refresh-interval'
+    | 'alignment';
   providerKey?: string;
 };
 
@@ -81,20 +81,20 @@ type ProviderTroubleshootItem = vscode.QuickPickItem & {
   methodIndex?: number;
 };
 
-function configuredLabel(id: ProviderId, fallback: string): string {
+function configuredStatusBarName(id: ProviderId, fallback: string): string {
   return (
     vscode.workspace
       .getConfiguration('leanQuotaMonitor')
-      .get<string>(`${id}Label`, fallback)
+      .get<string>(`${id}StatusBarName`, fallback)
       .trim() || fallback
   );
 }
 
-function configuredDisplayName(id: ProviderId, fallback: string): string {
+function configuredProviderName(id: ProviderId, fallback: string): string {
   return (
     vscode.workspace
       .getConfiguration('leanQuotaMonitor')
-      .get<string>(`${id}Name`, fallback)
+      .get<string>(`${id}ProviderName`, fallback)
       .trim() || fallback
   );
 }
@@ -220,12 +220,14 @@ function tooltip(
   states: Record<ProviderId, ProviderState>,
   customStates: Record<string, CustomProviderState>,
   orderOverride?: readonly string[],
+  visibilityOverride?: ReadonlyMap<string, boolean>,
 ): vscode.MarkdownString {
   const md = new vscode.MarkdownString(undefined, true);
   md.isTrusted = {
     enabledCommands: [
       'leanQuotaMonitor.toggleProvider',
       'leanQuotaMonitor.refresh',
+      'leanQuotaMonitor.refreshProvider',
       'leanQuotaMonitor.openMonitor',
       'leanQuotaMonitor.openTroubleshoot',
       'leanQuotaMonitor.openSettings',
@@ -244,21 +246,13 @@ function tooltip(
       : customHasCurrentData(customStates[key] ?? {}),
   );
 
-  const quickConfigLink = commandLink('leanQuotaMonitor.openMonitor', '🎚️Quick Configure');
-  const settingsLink = commandLink('leanQuotaMonitor.openSettings', '⚙️');
-  const troubleshootLink = commandLink('leanQuotaMonitor.openTroubleshoot', '📋');
-  const refreshLink = commandLink('leanQuotaMonitor.refresh', '🔄');
-  md.appendMarkdown(
-    `${quickConfigLink} | ${settingsLink} | ${troubleshootLink} | ${refreshLink}  \n\n---\n\n`,
-  );
-
   const sections: { key: string; block: string; updated: string }[] = [];
   for (const key of healthyOrder) {
     if (isProviderId(key)) {
       const provider = builtInProvider(key);
       const detail = providerDetail(
-        configuredDisplayName(key, provider.displayNameFallback),
-        configuredLabel(key, provider.statusBarFallback),
+        configuredProviderName(key, provider.providerName),
+        configuredStatusBarName(key, provider.statusBarName),
         states[key],
       );
       sections.push({ key, ...detail });
@@ -266,26 +260,44 @@ function tooltip(
     }
     const config = customProviders[key];
     if (!config) continue;
-    const detail = customDetail(key, customStates[key] ?? {});
+    const detail = customDetail(key, customStates[key] ?? {}, Date.now(), config.statusBarName);
     sections.push({ key, ...detail });
   }
 
   sections.forEach((detail, index) => {
-    md.appendMarkdown(`${detail.block.replaceAll('\n', '  \n')}  \n`);
-    if (detail.updated) {
-      const controls: string[] = [
-        commandLink('leanQuotaMonitor.toggleProvider', '👀', [detail.key]),
-      ];
-      if (index > 0) {
-        controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏶', [detail.key, 'up']));
-      }
-      if (index < sections.length - 1) {
-        controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏷', [detail.key, 'down']));
-      }
-      md.appendMarkdown(`*Updated ${detail.updated}* | ${controls.join(' | ')}`);
+    const visible = visibilityOverride?.has(detail.key)
+      ? (visibilityOverride.get(detail.key) ?? true)
+      : isProviderId(detail.key)
+        ? providerVisible(detail.key)
+        : (customProviders[detail.key]?.visible ?? true);
+    const visibilityStatus = visible ? 'Showing' : 'Hiding';
+    const refreshLabel = detail.updated ? `🔄 ${detail.updated}` : '🔄';
+    const controls: string[] = [
+      commandLink('leanQuotaMonitor.toggleProvider', `👀 ${visibilityStatus}`, [detail.key]),
+    ];
+    if (index > 0) {
+      controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏶', [detail.key, 'up']));
+    }
+    if (index < sections.length - 1) {
+      controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏷', [detail.key, 'down']));
+    }
+    controls.push(commandLink('leanQuotaMonitor.refreshProvider', refreshLabel, [detail.key]));
+    const controlBar = controls.join(' | ');
+    if (detail.block.includes('\n')) {
+      const [line1, line2] = detail.block.split('\n');
+      md.appendMarkdown(`${line1}  \n${line2} | ${controlBar}  \n`);
+    } else {
+      md.appendMarkdown(`${detail.block} | ${controlBar}  \n`);
     }
     if (index < sections.length - 1) md.appendMarkdown('\n\n---\n\n');
   });
+
+  const quickConfigLink = commandLink('leanQuotaMonitor.openMonitor', '🎚️ Quick Configure');
+  const settingsLink = commandLink('leanQuotaMonitor.openSettings', '⚙️ Settings');
+  const troubleshootLink = commandLink('leanQuotaMonitor.openTroubleshoot', '📋 Troubleshoot');
+  const refreshLink = commandLink('leanQuotaMonitor.refresh', '🔄 Refresh All');
+  if (sections.length > 0) md.appendMarkdown('\n\n---\n\n');
+  md.appendMarkdown(`${quickConfigLink} | ${settingsLink} | ${troubleshootLink} | ${refreshLink}`);
 
   return md;
 }
@@ -309,13 +321,49 @@ export function activate(context: vscode.ExtensionContext): void {
   let previousCustomProviders = configuredCustomProviders();
   let activeQuickPick: vscode.QuickPick<MonitorItem> | undefined;
 
-  const item = vscode.window.createStatusBarItem(
+  const configuredAlignmentSetting = (): 'right' | 'left' =>
+    vscode.workspace
+      .getConfiguration('leanQuotaMonitor')
+      .get<string>('statusBarAlignment', 'right') === 'left'
+      ? 'left'
+      : 'right';
+
+  const configuredAlignment = (): vscode.StatusBarAlignment =>
+    configuredAlignmentSetting() === 'left'
+      ? vscode.StatusBarAlignment.Left
+      : vscode.StatusBarAlignment.Right;
+
+  let item = vscode.window.createStatusBarItem(
     'leanQuotaMonitor.summary',
-    vscode.StatusBarAlignment.Right,
+    configuredAlignment(),
     10_000,
   );
   item.name = 'Lean Quota Monitor';
+  item.command = 'leanQuotaMonitor.openMonitor';
   context.subscriptions.push(item);
+
+  const updateStatusBarAlignment = () => {
+    const currentText = item.text;
+    const currentTooltip = item.tooltip;
+    item.dispose();
+    item = vscode.window.createStatusBarItem(
+      'leanQuotaMonitor.summary',
+      configuredAlignment(),
+      10_000,
+    );
+    item.name = 'Lean Quota Monitor';
+    item.command = 'leanQuotaMonitor.openMonitor';
+    item.text = currentText;
+    item.tooltip = currentTooltip;
+    item.show();
+    context.subscriptions.push(item);
+  };
+
+  const refreshStatusVisibility = async () => {
+    item.hide();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    item.show();
+  };
 
   const render = (
     orderOverride?: readonly string[],
@@ -334,7 +382,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (!visible || !providerHasCurrentData(states[key])) continue;
         const provider = builtInProvider(key);
         visibleText.push(
-          providerStatusText(configuredLabel(key, provider.statusBarFallback), states[key]),
+          providerStatusText(configuredStatusBarName(key, provider.statusBarName), states[key]),
         );
         continue;
       }
@@ -346,7 +394,8 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     item.text = visibleText.length > 0 ? visibleText.join(' │ ') : 'Quota';
-    item.tooltip = tooltip(states, customStates, order);
+    item.tooltip = tooltip(states, customStates, order, visibilityOverride);
+
     if (activeQuickPick) {
       activeQuickPick.items = buildMonitorItems(order, visibilityOverride);
     }
@@ -431,9 +480,11 @@ export function activate(context: vscode.ExtensionContext): void {
         const state = states[key];
         if (!providerHasCurrentData(state)) continue;
         const provider = builtInProvider(key);
+        const visible = visibilityOverride?.get(key) ?? providerVisible(key);
+        const visibilityStatus = visible ? 'Showing' : 'Hiding';
         items.push({
-          label: configuredDisplayName(key, provider.displayNameFallback),
-          description: `${quickProviderDescription(state)}${(visibilityOverride?.get(key) ?? providerVisible(key)) ? '' : ' · Off'}`,
+          label: configuredProviderName(key, provider.providerName),
+          description: `${quickProviderDescription(state)} · ${visibilityStatus}`,
           detail: quickProviderDetail(state),
           action: 'builtin',
           providerId: key,
@@ -445,10 +496,13 @@ export function activate(context: vscode.ExtensionContext): void {
       const config = customProviders[key];
       const state = customStates[key] ?? {};
       if (!config) continue;
+      const visible = visibilityOverride?.get(key) ?? config.visible;
+      const visibilityStatus = visible ? 'Showing' : 'Hiding';
+      const outputText = state.output ?? (state.error ? displayError(state.error) : 'Loading…');
       items.push({
         label: key,
-        description: `${state.output ?? (state.error ? displayError(state.error) : 'Loading…')}${(visibilityOverride?.get(key) ?? config.visible) ? '' : ' · Off'}`,
-        detail: `Status Bar: ${config.label} · ${config.script}`,
+        description: `${outputText} · ${visibilityStatus}`,
+        detail: `Status Bar: ${config.statusBarName} · ${config.script}`,
         action: 'custom',
         customName: key,
         buttons: [{ iconPath: new vscode.ThemeIcon('refresh'), tooltip: 'Refresh now' }],
@@ -458,6 +512,11 @@ export function activate(context: vscode.ExtensionContext): void {
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
     items.push({ label: '$(refresh) Refresh All', action: 'refresh-all', alwaysShow: true });
     items.push({ label: '$(gear) Configure', action: 'configure', alwaysShow: true });
+    items.push({
+      label: '$(tools) Troubleshoot Providers',
+      action: 'troubleshoot',
+      alwaysShow: true,
+    });
     items.push({ label: '$(close) Close', action: 'close', alwaysShow: true });
     return items;
   };
@@ -486,9 +545,7 @@ export function activate(context: vscode.ExtensionContext): void {
     render(nextOrder);
     await updateProviderOrder(nextOrder);
     render(nextOrder);
-    item.hide();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    item.show();
+    await refreshStatusVisibility();
   };
 
   const toggleProviderVisibility = async (key: string) => {
@@ -501,6 +558,7 @@ export function activate(context: vscode.ExtensionContext): void {
       render(undefined, override);
       await config.update(setting, nextVisible, vscode.ConfigurationTarget.Global);
       render(undefined, override);
+      await refreshStatusVisibility();
       return;
     }
 
@@ -515,6 +573,7 @@ export function activate(context: vscode.ExtensionContext): void {
       [key]: { ...custom, visible: nextVisible },
     });
     render(undefined, override);
+    await refreshStatusVisibility();
   };
 
   const showInputWithBack = (options: {
@@ -565,9 +624,9 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const addCustomProvider = async () => {
     const current = configuredCustomProviders();
-    let step: 'name' | 'label' | 'script' = 'name';
+    let step: 'name' | 'statusBarName' | 'script' = 'name';
     let name = '';
-    let label = '';
+    let statusBarName = '';
     let script = '';
 
     for (;;) {
@@ -575,7 +634,7 @@ export function activate(context: vscode.ExtensionContext): void {
         const result = await showInputWithBack({
           title: 'Add Custom Provider · Provider Name',
           prompt: 'Name shown in Hover and Quick Pick.',
-          placeholder: 'MyProviderName',
+          placeholder: 'custom_provider_name',
           value: name,
           validate: (value) => {
             if (!value) return 'Provider Name is required.';
@@ -587,16 +646,16 @@ export function activate(context: vscode.ExtensionContext): void {
         });
         if (result.action === 'cancel' || result.action === 'back') return;
         name = result.value;
-        step = 'label';
+        step = 'statusBarName';
         continue;
       }
 
-      if (step === 'label') {
+      if (step === 'statusBarName') {
         const result = await showInputWithBack({
           title: 'Add Custom Provider · Status Bar Name',
           prompt: 'Short name shown before Status Output in the Status Bar.',
-          placeholder: 'MY',
-          value: label,
+          placeholder: 'my',
+          value: statusBarName,
           validate: (value) => (value ? undefined : 'Status Bar Name is required.'),
         });
         if (result.action === 'cancel') return;
@@ -604,7 +663,7 @@ export function activate(context: vscode.ExtensionContext): void {
           step = 'name';
           continue;
         }
-        label = result.value;
+        statusBarName = result.value;
         step = 'script';
         continue;
       }
@@ -618,14 +677,14 @@ export function activate(context: vscode.ExtensionContext): void {
       });
       if (result.action === 'cancel') return;
       if (result.action === 'back') {
-        step = 'label';
+        step = 'statusBarName';
         continue;
       }
       script = result.value;
       break;
     }
 
-    const custom = { label, script, visible: true };
+    const custom = { statusBarName, script, visible: true };
     const nextProviders = { ...current, [name]: custom };
     const nextOrder = configuredProviderOrder(nextProviders);
     customStates[name] = {};
@@ -646,6 +705,7 @@ export function activate(context: vscode.ExtensionContext): void {
           label: custom.visible
             ? '$(eye-closed) Hide from Status Bar'
             : '$(eye) Show in Status Bar',
+          description: custom.visible ? 'Showing' : 'Hiding',
           action: 'toggle' as const,
         },
         { label: '$(edit) Change Provider Name', action: 'rename' as const },
@@ -673,6 +733,8 @@ export function activate(context: vscode.ExtensionContext): void {
         await vscode.window.showInputBox({
           title: `Provider Name · ${name}`,
           value: name,
+          prompt: 'Name shown in Hover and Quick Pick.',
+          placeHolder: 'custom_provider_name',
           ignoreFocusOut: true,
         })
       )?.trim();
@@ -696,16 +758,20 @@ export function activate(context: vscode.ExtensionContext): void {
     }
 
     if (choice.action === 'label') {
-      const nextLabel = (
+      const nextStatusBarName = (
         await vscode.window.showInputBox({
           title: `Status Bar Name · ${name}`,
-          value: custom.label,
-          placeHolder: 'MY',
+          value: custom.statusBarName,
+          prompt: 'Label shown in Status Bar.',
+          placeHolder: 'my',
           ignoreFocusOut: true,
         })
       )?.trim();
-      if (!nextLabel || nextLabel === custom.label) return;
-      await updateCustomProviders({ ...current, [name]: { ...custom, label: nextLabel } });
+      if (!nextStatusBarName || nextStatusBarName === custom.statusBarName) return;
+      await updateCustomProviders({
+        ...current,
+        [name]: { ...custom, statusBarName: nextStatusBarName },
+      });
       render();
       return;
     }
@@ -753,7 +819,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const setBuiltInSecret = async (id: ProviderId): Promise<boolean> => {
     const secret = builtInProvider(id).secret;
     if (!secret) return false;
-    const displayName = configuredDisplayName(id, builtInProvider(id).displayNameFallback);
+    const displayName = configuredProviderName(id, builtInProvider(id).providerName);
 
     const value = await vscode.window.showInputBox({
       title: secret.title,
@@ -780,13 +846,20 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const updateBuiltInTextSetting = async (
     id: ProviderId,
-    field: 'Name' | 'Label',
+    field: 'ProviderName' | 'StatusBarName',
     currentValue: string,
     title: string,
+    defaultValue?: string,
   ): Promise<void> => {
+    const defaultSuffix = defaultValue ? ` (default: ${defaultValue})` : '';
     const value = await vscode.window.showInputBox({
       title,
       value: currentValue,
+      prompt:
+        field === 'ProviderName'
+          ? `Name shown in Hover and Quick Pick${defaultSuffix}.`
+          : `Label shown in Status Bar${defaultSuffix}.`,
+      placeHolder: defaultValue ?? currentValue,
       ignoreFocusOut: true,
     });
     const next = value?.trim();
@@ -801,7 +874,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const state = states[id];
     if (!state.error) return;
     const provider = builtInProvider(id);
-    const displayName = configuredDisplayName(id, provider.displayNameFallback);
+    const displayName = configuredProviderName(id, provider.providerName);
     const detail = [
       `Provider: ${displayName}`,
       'Status: Error',
@@ -832,16 +905,17 @@ export function activate(context: vscode.ExtensionContext): void {
         { label: '$(arrow-left) Back', action: 'back', alwaysShow: true },
         {
           label: visible ? '$(eye-closed) Hide from Status Bar' : '$(eye) Show in Status Bar',
+          description: visible ? 'Showing' : 'Hiding',
           action: 'toggle',
         },
         {
           label: '$(edit) Change Provider Name',
-          description: configuredDisplayName(id, provider.displayNameFallback),
+          description: configuredProviderName(id, provider.providerName),
           action: 'name',
         },
         {
           label: '$(symbol-key) Change Status Bar Name',
-          description: configuredLabel(id, provider.statusBarFallback),
+          description: configuredStatusBarName(id, provider.statusBarName),
           action: 'label',
         },
       ];
@@ -864,7 +938,7 @@ export function activate(context: vscode.ExtensionContext): void {
       items.push({ label: '$(settings-gear) Open Provider Settings', action: 'settings' });
 
       const selected = await vscode.window.showQuickPick(items, {
-        title: `Lean Quota Monitor · ${configuredDisplayName(id, provider.displayNameFallback)}`,
+        title: `Lean Quota Monitor · ${configuredProviderName(id, provider.providerName)}`,
         placeHolder: states[id].error
           ? `Error: ${providerErrorSummary(states[id].error)}`
           : 'Provider actions',
@@ -879,18 +953,20 @@ export function activate(context: vscode.ExtensionContext): void {
       if (selected.action === 'name') {
         await updateBuiltInTextSetting(
           id,
-          'Name',
-          configuredDisplayName(id, provider.displayNameFallback),
-          `Provider Name · ${configuredDisplayName(id, provider.displayNameFallback)}`,
+          'ProviderName',
+          configuredProviderName(id, provider.providerName),
+          `Provider Name · ${configuredProviderName(id, provider.providerName)}`,
+          provider.providerName,
         );
         continue;
       }
       if (selected.action === 'label') {
         await updateBuiltInTextSetting(
           id,
-          'Label',
-          configuredLabel(id, provider.statusBarFallback),
-          `Status Bar Name · ${configuredDisplayName(id, provider.displayNameFallback)}`,
+          'StatusBarName',
+          configuredStatusBarName(id, provider.statusBarName),
+          `Status Bar Name · ${configuredProviderName(id, provider.providerName)}`,
+          provider.statusBarName,
         );
         continue;
       }
@@ -912,12 +988,12 @@ export function activate(context: vscode.ExtensionContext): void {
       { label: 'Built-in', kind: vscode.QuickPickItemKind.Separator },
     ];
 
-    for (const { id, displayNameFallback, statusBarFallback } of PROVIDERS) {
+    for (const { id, providerName, statusBarName } of PROVIDERS) {
       if (!providerHasCurrentData(states[id])) continue;
       const visible = providerVisible(id);
       items.push({
-        label: `${visible ? '$(check)' : '$(circle-slash)'} ${configuredDisplayName(id, displayNameFallback)}`,
-        description: `Status Bar: ${configuredLabel(id, statusBarFallback)} · ${visible ? 'On' : 'Off'}`,
+        label: `${visible ? '$(check)' : '$(circle-slash)'} ${configuredProviderName(id, providerName)}`,
+        description: `Status Bar: ${configuredStatusBarName(id, statusBarName)} · ${visible ? 'Showing' : 'Hiding'}`,
         action: 'builtin',
         providerKey: id,
       });
@@ -927,11 +1003,12 @@ export function activate(context: vscode.ExtensionContext): void {
     items.push({ label: 'Custom', kind: vscode.QuickPickItemKind.Separator });
     for (const [name, config] of customProviders) {
       const state = customStates[name] ?? {};
+      const statusPrefix = state.error
+        ? `Error: ${displayError(state.error)}`
+        : `Status Bar: ${config.statusBarName}`;
       items.push({
         label: `${config.visible ? '$(check)' : '$(circle-slash)'} ${name}`,
-        description: state.error
-          ? `Error: ${displayError(state.error)}`
-          : `Status Bar: ${config.label} · ${config.visible ? 'On' : 'Off'}`,
+        description: `${statusPrefix} · ${config.visible ? 'Showing' : 'Hiding'}`,
         action: 'custom',
         providerKey: name,
       });
@@ -939,20 +1016,23 @@ export function activate(context: vscode.ExtensionContext): void {
     items.push({ label: '$(add) Add Custom Provider', action: 'add-custom', alwaysShow: true });
 
     items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
+    const currentInterval = refreshIntervalSeconds();
     items.push({
       label: '$(watch) Refresh Interval',
-      description: `${refreshIntervalSeconds()}s`,
+      description: `${currentInterval}s (${formatIntervalLabel(currentInterval)})`,
       action: 'refresh-interval',
       alwaysShow: true,
     });
+    const currentAlignment = configuredAlignmentSetting();
     items.push({
-      label: '$(tools) Troubleshoot',
-      action: 'troubleshoot',
+      label: '$(layout-statusbar) Status Bar Alignment',
+      description: `${currentAlignment === 'left' ? 'Left' : 'Right'} (restart required)`,
+      action: 'alignment',
       alwaysShow: true,
     });
     items.push({
-      label: '$(settings-gear) Open VS Code Settings',
-      action: 'open-settings',
+      label: '$(tools) Troubleshoot Providers',
+      action: 'troubleshoot',
       alwaysShow: true,
     });
     return items;
@@ -961,7 +1041,14 @@ export function activate(context: vscode.ExtensionContext): void {
   const refreshIntervalSeconds = () =>
     vscode.workspace
       .getConfiguration('leanQuotaMonitor')
-      .get<number>('refreshIntervalSeconds', 300);
+      .get<number>('refreshIntervalSeconds', 180);
+
+  const formatIntervalLabel = (seconds: number): string => {
+    if (seconds < 60) return `${seconds}s`;
+    if (seconds % 3600 === 0) return `${seconds / 3600}h`;
+    if (seconds % 60 === 0) return `${seconds / 60}m`;
+    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  };
 
   const updateRefreshIntervalSeconds = async (seconds: number) => {
     await vscode.workspace
@@ -970,18 +1057,16 @@ export function activate(context: vscode.ExtensionContext): void {
   };
 
   async function openRefreshIntervalPicker(): Promise<void> {
-    const presets = [60, 120, 300, 600, 1800, 3600];
+    const presets = [30, 60, 120, 180, 300, 600, 1800, 3600];
     const validSeconds = (input: string): number | undefined => {
       const parsed = Number(input);
-      return Number.isInteger(parsed) && parsed >= 60 && parsed <= 3600 ? parsed : undefined;
+      return Number.isInteger(parsed) && parsed >= 30 ? parsed : undefined;
     };
-    const presetLabel = (seconds: number): string =>
-      seconds % 3600 === 0 ? `${seconds / 3600}h` : `${seconds / 60}m`;
     const current = refreshIntervalSeconds();
     const items: (vscode.QuickPickItem & { seconds?: number; custom?: boolean })[] = [
       { label: '$(arrow-left) Back', alwaysShow: true },
       ...presets.map((seconds) => ({
-        label: presetLabel(seconds),
+        label: formatIntervalLabel(seconds),
         description: `${seconds} seconds${seconds === current ? ' · current' : ''}`,
         seconds,
       })),
@@ -1003,11 +1088,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
       const result = await showInputWithBack({
         title: 'Refresh Interval · seconds',
-        prompt: 'Whole number between 60 and 3600.',
-        placeholder: '300',
+        prompt: 'Whole number of at least 30 seconds (default: 180s).',
+        placeholder: '180',
         validate: (input) => {
           if (validSeconds(input) === undefined) {
-            return 'Enter a whole number between 60 and 3600.';
+            return 'Enter a whole number of at least 30 seconds.';
           }
           return undefined;
         },
@@ -1061,7 +1146,7 @@ export function activate(context: vscode.ExtensionContext): void {
       ];
 
       const selected = await vscode.window.showQuickPick<ProviderTroubleshootItem>(items, {
-        title: `Lean Quota Monitor · Troubleshoot · ${configuredDisplayName(id, provider.displayNameFallback)}`,
+        title: `Lean Quota Monitor · Troubleshoot · ${configuredProviderName(id, provider.providerName)}`,
         placeHolder:
           plan.kind === 'available'
             ? 'Set up any one method. Lean Quota Monitor uses the first one that works.'
@@ -1123,12 +1208,12 @@ export function activate(context: vscode.ExtensionContext): void {
     for (;;) {
       const missing: TroubleshootItem[] = [];
 
-      for (const { id, displayNameFallback } of PROVIDERS) {
+      for (const { id, providerName } of PROVIDERS) {
         const state = states[id];
         if (!state.error) continue;
         const methods = troubleshootMethods(id);
         missing.push({
-          label: configuredDisplayName(id, displayNameFallback),
+          label: configuredProviderName(id, providerName),
           description:
             methods.length > 1
               ? providerErrorSummary(state.error)
@@ -1218,16 +1303,15 @@ export function activate(context: vscode.ExtensionContext): void {
         await openRefreshIntervalPicker();
         continue;
       }
-      if (selected.action === 'troubleshoot') {
-        await openTroubleshoot();
+      if (selected.action === 'alignment') {
+        const next = configuredAlignmentSetting() === 'left' ? 'right' : 'left';
+        await vscode.workspace
+          .getConfiguration('leanQuotaMonitor')
+          .update('statusBarAlignment', next, vscode.ConfigurationTarget.Global);
         continue;
       }
-      if (selected.action === 'open-settings') {
-        await vscode.commands.executeCommand(
-          'workbench.action.openSettings',
-          '@ext:nicezic.lean-quota-monitor',
-        );
-        return;
+      if (selected.action === 'troubleshoot') {
+        await openTroubleshoot();
       }
     }
   }
@@ -1285,6 +1369,11 @@ export function activate(context: vscode.ExtensionContext): void {
         await openConfigure();
         return;
       }
+      if (selected.action === 'troubleshoot') {
+        await openTroubleshoot();
+        openMonitor();
+        return;
+      }
       if (selected.action === 'builtin' && selected.providerId) {
         await openBuiltInProvider(selected.providerId);
         openMonitor();
@@ -1304,12 +1393,15 @@ export function activate(context: vscode.ExtensionContext): void {
     qp.show();
   }
 
-  const startTimer = () => {
-    if (refreshTimer) clearInterval(refreshTimer);
-    const seconds = vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .get<number>('refreshIntervalSeconds', 300);
-    refreshTimer = setInterval(() => void refresh(), seconds * 1000);
+  const scheduleNextRefresh = () => {
+    if (refreshTimer) clearTimeout(refreshTimer);
+    const baseSeconds = Math.max(30, refreshIntervalSeconds());
+    const jitter = Math.floor(Math.random() * 16);
+    const delayMs = (baseSeconds + jitter) * 1000;
+    refreshTimer = setTimeout(async () => {
+      await refresh();
+      scheduleNextRefresh();
+    }, delayMs);
   };
 
   context.subscriptions.push(
@@ -1319,6 +1411,18 @@ export function activate(context: vscode.ExtensionContext): void {
       () => void openTroubleshoot(),
     ),
     vscode.commands.registerCommand('leanQuotaMonitor.refresh', refresh),
+    vscode.commands.registerCommand('leanQuotaMonitor.refreshProvider', async (key: string) => {
+      if (isProviderId(key)) {
+        await refreshBuiltIn(key, 'rerun');
+      } else {
+        const custom = configuredCustomProviders()[key];
+        if (custom) await refreshCustom(key, custom, 'rerun');
+      }
+      render();
+      item.hide();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      item.show();
+    }),
     vscode.commands.registerCommand(
       'leanQuotaMonitor.moveProvider',
       async (key: string, direction: MoveDirection) => {
@@ -1337,49 +1441,36 @@ export function activate(context: vscode.ExtensionContext): void {
       await toggleProviderVisibility(key);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('leanQuotaMonitor.refreshIntervalSeconds')) startTimer();
+      if (event.affectsConfiguration('leanQuotaMonitor.statusBarAlignment')) {
+        updateStatusBarAlignment();
+      }
+      if (event.affectsConfiguration('leanQuotaMonitor.refreshIntervalSeconds')) {
+        scheduleNextRefresh();
+      }
       if (event.affectsConfiguration('leanQuotaMonitor.providerOrder')) render();
       if (event.affectsConfiguration('leanQuotaMonitor.customProviders')) {
         render();
         void refreshConfiguredCustoms();
       }
       if (
-        event.affectsConfiguration('leanQuotaMonitor.openaiLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.anthropicLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.geminiLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.minimaxLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.kimiLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.zaiLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.openrouterLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.opencodeLabel') ||
-        event.affectsConfiguration('leanQuotaMonitor.openaiName') ||
-        event.affectsConfiguration('leanQuotaMonitor.anthropicName') ||
-        event.affectsConfiguration('leanQuotaMonitor.geminiName') ||
-        event.affectsConfiguration('leanQuotaMonitor.minimaxName') ||
-        event.affectsConfiguration('leanQuotaMonitor.kimiName') ||
-        event.affectsConfiguration('leanQuotaMonitor.zaiName') ||
-        event.affectsConfiguration('leanQuotaMonitor.openrouterName') ||
-        event.affectsConfiguration('leanQuotaMonitor.opencodeName') ||
-        event.affectsConfiguration('leanQuotaMonitor.openaiVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.anthropicVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.geminiVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.minimaxVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.kimiVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.zaiVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.openrouterVisible') ||
-        event.affectsConfiguration('leanQuotaMonitor.opencodeVisible')
+        PROVIDERS.some(
+          ({ id }) =>
+            event.affectsConfiguration(`leanQuotaMonitor.${id}StatusBarName`) ||
+            event.affectsConfiguration(`leanQuotaMonitor.${id}ProviderName`) ||
+            event.affectsConfiguration(`leanQuotaMonitor.${id}Visible`),
+        )
       ) {
         render();
       }
     }),
   );
 
-  startTimer();
+  scheduleNextRefresh();
   displayTimer = setInterval(render, 30_000);
   void refresh();
 }
 
 export function deactivate(): void {
-  if (refreshTimer) clearInterval(refreshTimer);
+  if (refreshTimer) clearTimeout(refreshTimer);
   if (displayTimer) clearInterval(displayTimer);
 }

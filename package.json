@@ -79,11 +79,20 @@
         "properties": {
           "leanQuotaMonitor.refreshIntervalSeconds": {
             "type": "number",
-            "minimum": 60,
-            "maximum": 3600,
-            "default": 300,
-            "description": "Refresh interval in seconds.",
+            "minimum": 30,
+            "default": 180,
+            "description": "Automatic refresh interval in seconds (minimum: 30, default: 180).",
             "order": 10
+          },
+          "leanQuotaMonitor.statusBarAlignment": {
+            "type": "string",
+            "enum": [
+              "right",
+              "left"
+            ],
+            "default": "right",
+            "description": "Status Bar placement: right or left (default: right, restart required).",
+            "order": 15
           },
           "leanQuotaMonitor.providerOrder": {
             "type": [
@@ -113,16 +122,16 @@
         "title": "Lean Quota Monitor: Codex",
         "order": 20,
         "properties": {
-          "leanQuotaMonitor.openaiName": {
+          "leanQuotaMonitor.openaiProviderName": {
             "type": "string",
             "default": "Codex",
-            "description": "Display name shown in hover details for OpenAI Codex quota.",
+            "description": "Display name shown in hover details for OpenAI Codex quota (default: Codex).",
             "order": 10
           },
-          "leanQuotaMonitor.openaiLabel": {
+          "leanQuotaMonitor.openaiStatusBarName": {
             "type": "string",
             "default": "GPT",
-            "description": "Status bar name for OpenAI Codex quota.",
+            "description": "Status bar name for OpenAI Codex quota (default: GPT).",
             "order": 20
           },
           "leanQuotaMonitor.openaiVisible": {
@@ -137,16 +146,16 @@
         "title": "Lean Quota Monitor: Claude",
         "order": 30,
         "properties": {
-          "leanQuotaMonitor.anthropicName": {
+          "leanQuotaMonitor.anthropicProviderName": {
             "type": "string",
             "default": "Claude",
-            "description": "Display name shown in hover details for Anthropic Claude quota.",
+            "description": "Display name shown in hover details for Anthropic Claude quota (default: Claude).",
             "order": 10
           },
-          "leanQuotaMonitor.anthropicLabel": {
+          "leanQuotaMonitor.anthropicStatusBarName": {
             "type": "string",
             "default": "CLA",
-            "description": "Status bar name for Anthropic Claude quota.",
+            "description": "Status bar name for Anthropic Claude quota (default: CLA).",
             "order": 20
           },
           "leanQuotaMonitor.anthropicVisible": {
@@ -161,16 +170,16 @@
         "title": "Lean Quota Monitor: Gemini",
         "order": 40,
         "properties": {
-          "leanQuotaMonitor.geminiName": {
+          "leanQuotaMonitor.geminiProviderName": {
             "type": "string",
             "default": "Gemini",
-            "description": "Display name shown in hover details for Google Gemini quota.",
+            "description": "Display name shown in hover details for Google Gemini quota (default: Gemini).",
             "order": 10
           },
-          "leanQuotaMonitor.geminiLabel": {
+          "leanQuotaMonitor.geminiStatusBarName": {
             "type": "string",
             "default": "AGY",
-            "description": "Status bar name for Gemini quota.",
+            "description": "Status bar name for Gemini quota (default: AGY).",
             "order": 20
           },
           "leanQuotaMonitor.geminiVisible": {
@@ -185,16 +194,16 @@
         "title": "Lean Quota Monitor: MiniMax",
         "order": 50,
         "properties": {
-          "leanQuotaMonitor.minimaxName": {
+          "leanQuotaMonitor.minimaxProviderName": {
             "type": "string",
             "default": "MiniMax",
-            "description": "Display name shown in hover details for MiniMax quota.",
+            "description": "Display name shown in hover details for MiniMax quota (default: MiniMax).",
             "order": 10
           },
-          "leanQuotaMonitor.minimaxLabel": {
+          "leanQuotaMonitor.minimaxStatusBarName": {
             "type": "string",
             "default": "M3",
-            "description": "Status bar name for MiniMax quota.",
+            "description": "Status bar name for MiniMax quota (default: M3).",
             "order": 20
           },
           "leanQuotaMonitor.minimaxVisible": {
@@ -209,16 +218,16 @@
         "title": "Lean Quota Monitor: Kimi",
         "order": 60,
         "properties": {
-          "leanQuotaMonitor.kimiName": {
+          "leanQuotaMonitor.kimiProviderName": {
             "type": "string",
             "default": "Kimi",
-            "description": "Display name shown in hover details for Kimi Code quota.",
+            "description": "Display name shown in hover details for Kimi Code quota (default: Kimi).",
             "order": 10
           },
-          "leanQuotaMonitor.kimiLabel": {
+          "leanQuotaMonitor.kimiStatusBarName": {
             "type": "string",
             "default": "KIMI",
-            "description": "Status bar name for Kimi Code quota.",
+            "description": "Status bar name for Kimi Code quota (default: KIMI).",
             "order": 20
           },
           "leanQuotaMonitor.kimiVisible": {
@@ -233,16 +242,16 @@
         "title": "Lean Quota Monitor: Z.AI / GLM",
         "order": 70,
         "properties": {
-          "leanQuotaMonitor.zaiName": {
+          "leanQuotaMonitor.zaiProviderName": {
             "type": "string",
             "default": "Z.AI / GLM",
-            "description": "Display name shown in hover details for Z.AI GLM Coding Plan quota.",
+            "description": "Display name shown in hover details for Z.AI GLM Coding Plan quota (default: Z.AI / GLM).",
             "order": 10
           },
-          "leanQuotaMonitor.zaiLabel": {
+          "leanQuotaMonitor.zaiStatusBarName": {
             "type": "string",
             "default": "GLM",
-            "description": "Status bar name for Z.AI GLM Coding Plan quota.",
+            "description": "Status bar name for Z.AI GLM Coding Plan quota (default: GLM).",
             "order": 20
           },
           "leanQuotaMonitor.zaiVisible": {
@@ -257,16 +266,16 @@
         "title": "Lean Quota Monitor: OpenRouter",
         "order": 80,
         "properties": {
-          "leanQuotaMonitor.openrouterName": {
+          "leanQuotaMonitor.openrouterProviderName": {
             "type": "string",
             "default": "OpenRouter",
-            "description": "Display name shown in hover details for OpenRouter credits.",
+            "description": "Display name shown in hover details for OpenRouter credits (default: OpenRouter).",
             "order": 10
           },
-          "leanQuotaMonitor.openrouterLabel": {
+          "leanQuotaMonitor.openrouterStatusBarName": {
             "type": "string",
             "default": "OR",
-            "description": "Status bar name for OpenRouter remaining credits.",
+            "description": "Status bar name for OpenRouter remaining credits (default: OR).",
             "order": 20
           },
           "leanQuotaMonitor.openrouterVisible": {
@@ -281,16 +290,16 @@
         "title": "Lean Quota Monitor: OpenCode Go",
         "order": 85,
         "properties": {
-          "leanQuotaMonitor.opencodeName": {
+          "leanQuotaMonitor.opencodeProviderName": {
             "type": "string",
             "default": "OpenCode Go",
-            "description": "Display name shown in hover details for OpenCode Go quota.",
+            "description": "Display name shown in hover details for OpenCode Go quota (default: OpenCode Go).",
             "order": 10
           },
-          "leanQuotaMonitor.opencodeLabel": {
+          "leanQuotaMonitor.opencodeStatusBarName": {
             "type": "string",
             "default": "OCG",
-            "description": "Status bar name for OpenCode Go quota.",
+            "description": "Status bar name for OpenCode Go quota (default: OCG).",
             "order": 20
           },
           "leanQuotaMonitor.opencodeVisible": {
@@ -309,15 +318,15 @@
             "type": "object",
             "default": {},
             "scope": "machine",
-            "description": "Custom Providers. Key = Provider Name; label = Status Bar Name; script stdout = Status Output. Scripts must exit 0 and print exactly one non-empty Status Output without the Status Bar Name; rendered Status Bar text is capped at 10 characters.",
+            "description": "Custom Providers. Key = Provider Name; statusBarName = Status Bar Name; script stdout = Status Output. Scripts must exit 0 and print exactly one non-empty Status Output without the Status Bar Name; rendered Status Bar text is capped at 10 characters.",
             "additionalProperties": {
               "type": "object",
               "required": [
-                "label",
+                "statusBarName",
                 "script"
               ],
               "properties": {
-                "label": {
+                "statusBarName": {
                   "type": "string",
                   "minLength": 1,
                   "description": "Status Bar Name. The script stdout is the Status Output and must not repeat this name."

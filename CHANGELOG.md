@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.3 - 2026-09-13
+
+- Compact single-line display for credit and custom providers in Hover.
+- Add positive-only random jitter (+0s ~ +15s) to distribute background refresh requests.
+- Refresh interval UI minimums (30s) and defaults (180s) without 1-hour cap.
+- Secondary quota windows separated by middle dot (` · `) for clearer visual grouping.
+- Refine Hover footer links with consistent spacing and clarity (`🎚️ Quick Configure`, `🔄 Refresh All`).
+- Built-in and custom provider rename inputs show default name hints and clearer prompts.
+
 ## 0.1.2 - 2026-08-24
 
 - Add OpenCode Go provider ($10/month quota: 5h / weekly / monthly windows).

@@ -1,7 +1,12 @@
 import { AcquisitionPathsError } from './acquisition.ts';
 import { type CustomProviderConfig, formatCustomStatus } from './custom-provider.ts';
 import { isProviderError } from './provider-error.ts';
-import type { ProviderSnapshot, QuotaSnapshot, QuotaWindow } from './types';
+import {
+  type ProviderSnapshot,
+  type QuotaSnapshot,
+  type QuotaWindow,
+  WINDOW_TYPES,
+} from './types.ts';
 
 export interface ProviderState {
   snapshot?: ProviderSnapshot;
@@ -51,23 +56,21 @@ function creditAmount(value: number): string {
   return `$${Math.max(0, value).toFixed(2)}`;
 }
 
-function windowByLabel(snapshot: QuotaSnapshot, label: string): QuotaWindow | undefined {
-  return snapshot.windows.find((window) => window.label === label);
-}
-
-function weeklyWindow(snapshot: QuotaSnapshot): QuotaWindow | undefined {
-  return windowByLabel(snapshot, 'Week');
+function statusWindow(snapshot: QuotaSnapshot): QuotaWindow | undefined {
+  return (
+    snapshot.windows.find((window) => window.type === snapshot.statusType) ?? snapshot.windows[0]
+  );
 }
 
 function resetRemaining(resetAt: Date | undefined, nowMs = Date.now()): string {
   if (!resetAt || Number.isNaN(resetAt.getTime())) return '';
   const remainingMs = resetAt.getTime() - nowMs;
-  if (remainingMs <= 0) return '↻now';
+  if (remainingMs <= 0) return 'now';
 
   const hours = Math.floor(remainingMs / 3_600_000);
-  if (hours >= 24) return `↻${Math.floor(hours / 24)}d`;
-  if (hours >= 1) return `↻${hours}h`;
-  return `↻${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
+  if (hours >= 24) return `${Math.floor(hours / 24)}d`;
+  if (hours >= 1) return `${hours}h`;
+  return `${Math.max(1, Math.ceil(remainingMs / 60_000))}m`;
 }
 
 export function providerHasCurrentData(state: ProviderState): boolean {
@@ -79,31 +82,32 @@ export function customHasCurrentData(state: CustomProviderState): boolean {
 }
 
 export function providerStatusText(
-  label: string,
+  statusBarName: string,
   state: ProviderState,
   nowMs = Date.now(),
 ): string {
-  if (state.error) return `${label} --`;
-  if (!state.snapshot) return `${label} …`;
+  if (state.error) return `${statusBarName} --`;
+  if (!state.snapshot) return `${statusBarName} …`;
 
   if (state.snapshot.kind === 'credit') {
-    return `${label} ${creditAmount(state.snapshot.remainingCredits)}`;
+    return `${statusBarName} ${creditAmount(state.snapshot.remainingCredits)}`;
   }
 
-  const weekly = weeklyWindow(state.snapshot);
-  if (!weekly) return `${label} --`;
+  const window = statusWindow(state.snapshot);
+  if (!window) return `${statusBarName} --`;
 
-  const reset = resetRemaining(weekly.resetAt, nowMs);
-  return `${label} ${shortPercent(weekly.remainingPercent)}${reset ? ` ${reset}` : ''}`;
+  const reset = resetRemaining(window.resetAt, nowMs);
+  const short = WINDOW_TYPES[window.type].short;
+  return `${statusBarName} ${shortPercent(window.remainingPercent)} ${short}${reset ? ` ${reset}` : ''}`;
 }
 
 export function customStatusText(config: CustomProviderConfig, state: CustomProviderState): string {
   if (state.error) {
     const message = displayError(state.error);
-    return formatCustomStatus(config.label, message === 'Not Found' ? message : '--');
+    return formatCustomStatus(config.statusBarName, message === 'Not Found' ? message : '--');
   }
-  if (!state.output) return formatCustomStatus(config.label, '…');
-  return formatCustomStatus(config.label, state.output);
+  if (!state.output) return formatCustomStatus(config.statusBarName, '…');
+  return formatCustomStatus(config.statusBarName, state.output);
 }
 
 export function formatDateTime(value: Date | undefined): string {
@@ -157,10 +161,11 @@ export function quickProviderDescription(state: ProviderState, nowMs = Date.now(
   if (state.snapshot.kind === 'credit') {
     return `Remaining ${creditAmount(state.snapshot.remainingCredits)}`;
   }
-  const weekly = weeklyWindow(state.snapshot);
-  if (!weekly) return '--';
-  const reset = resetRemaining(weekly.resetAt, nowMs);
-  return `${quickProgressBar(weekly.remainingPercent)} ${shortPercent(weekly.remainingPercent)}${reset ? ` · ${reset}` : ''}`;
+  const window = statusWindow(state.snapshot);
+  if (!window) return '--';
+  const reset = resetRemaining(window.resetAt, nowMs);
+  const short = WINDOW_TYPES[window.type].short;
+  return `${quickProgressBar(window.remainingPercent)} ${shortPercent(window.remainingPercent)} ${short}${reset ? ` · ${reset}` : ''}`;
 }
 
 export function quickProviderDetail(state: ProviderState, nowMs = Date.now()): string | undefined {
@@ -168,14 +173,31 @@ export function quickProviderDetail(state: ProviderState, nowMs = Date.now()): s
   return state.snapshot.windows
     .map((window) => {
       const reset = resetRemainingDetailed(window.resetAt, nowMs);
-      return `${window.label} ${shortPercent(window.remainingPercent)}${reset !== '--' ? ` · ↻ ${reset}` : ''}`;
+      return `${window.type} ${shortPercent(window.remainingPercent)}${reset !== '--' ? ` · ${reset}` : ''}`;
     })
     .join(' | ');
 }
 
+function resetDuration(resetAt: Date | undefined, nowMs = Date.now()): string {
+  if (!resetAt || Number.isNaN(resetAt.getTime())) return '';
+  const remainingMs = resetAt.getTime() - nowMs;
+  if (remainingMs <= 0) return 'now';
+  const remainingMinutes = Math.ceil(remainingMs / 60_000);
+  const days = Math.floor(remainingMinutes / 1_440);
+  const hours = Math.floor((remainingMinutes % 1_440) / 60);
+  const minutes = remainingMinutes % 60;
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  return `${minutes}m`;
+}
+
 export function providerDetail(
-  displayName: string,
-  statusBarLabel: string,
+  providerName: string,
+  statusBarName: string,
   state: ProviderState,
   nowMs = Date.now(),
 ): { block: string; updated: string } {
@@ -184,46 +206,50 @@ export function providerDetail(
     return {
       block:
         message === 'Not Found'
-          ? `${displayName.padEnd(7)}Not Found`
-          : `${displayName.padEnd(7)}--\n${'Error'.padEnd(7)}${message}`,
+          ? `${providerName.padEnd(7)}Not Found`
+          : `${providerName.padEnd(7)}--\n${'Error'.padEnd(7)}${message}`,
       updated: '',
     };
   }
 
   if (!state.snapshot) {
-    return { block: `${displayName.padEnd(7)}Loading…`, updated: '' };
+    return { block: `${providerName.padEnd(7)}Loading…`, updated: '' };
   }
 
   if (state.snapshot.kind === 'credit') {
     return {
-      block: [
-        `**${displayName}**&nbsp;${statusBarLabel}&nbsp;**${creditAmount(state.snapshot.remainingCredits)}**`,
-        `Remaining&nbsp;&nbsp;&nbsp;&nbsp;${creditAmount(state.snapshot.remainingCredits)}`,
-      ].join('\n'),
+      block: `\`░░░░░░ credit ░░░░░░\`  **${providerName}** \`${statusBarName}\` **${creditAmount(state.snapshot.remainingCredits)}**`,
       updated: updatedAgo(state.updatedAt, nowMs),
     };
   }
 
-  const weekly = weeklyWindow(state.snapshot);
-  if (!weekly) {
-    return { block: `${displayName.padEnd(7)}--`, updated: updatedAgo(state.updatedAt, nowMs) };
+  const window = statusWindow(state.snapshot);
+  if (!window) {
+    return { block: `${providerName.padEnd(7)}--`, updated: updatedAgo(state.updatedAt, nowMs) };
   }
 
-  const fiveHour = windowByLabel(state.snapshot, '5h');
-  const weeklyPercent = shortPercent(weekly.remainingPercent);
-  const weeklyReset = formatDateTime(weekly.resetAt);
-  const weeklyCountdown = resetRemainingDetailed(weekly.resetAt, nowMs);
-  const labelGap = '&nbsp;'.repeat(4);
-  const fiveHourSummary = fiveHour
-    ? `&nbsp;&nbsp;(5h: ${shortPercent(fiveHour.remainingPercent)} ↻ ${resetRemainingDetailed(fiveHour.resetAt, nowMs)})`
-    : '';
+  const percent = shortPercent(window.remainingPercent);
+  const reset = formatDateTime(window.resetAt);
+  const duration = resetDuration(window.resetAt, nowMs);
+  const resetPart = reset !== '--' && duration ? `  at ${reset} (**${duration} left**)` : '';
+
+  const lines = [
+    `\`${progressBar(window.remainingPercent)}\`  **${providerName}** \`${statusBarName}\` [${window.type}] **${percent}**${resetPart}`,
+  ];
+
+  const otherWindows = state.snapshot.windows.filter((w) => w !== window);
+  if (otherWindows.length > 0) {
+    const otherSummary = otherWindows
+      .map((w) => {
+        const d = resetDuration(w.resetAt, nowMs);
+        return `[${w.type}] ${shortPercent(w.remainingPercent)}${d ? ` (${d} left)` : ''}`;
+      })
+      .join(' · ');
+    lines.push(otherSummary);
+  }
 
   return {
-    block: [
-      `**${displayName}**&nbsp;${statusBarLabel}&nbsp;**${weeklyPercent}**${fiveHourSummary}`,
-      `Weekly${labelGap}${progressBar(weekly.remainingPercent)}`,
-      `Resets at${labelGap}${weeklyReset} · ↻ **${weeklyCountdown}** left`,
-    ].join('\n'),
+    block: lines.join('\n'),
     updated: updatedAgo(state.updatedAt, nowMs),
   };
 }
@@ -232,12 +258,14 @@ export function customDetail(
   name: string,
   state: CustomProviderState,
   nowMs = Date.now(),
+  statusBarName?: string,
 ): { block: string; updated: string } {
   const error = state.error ? displayError(state.error) : undefined;
   const value = error === 'Not Found' ? error : state.error ? '--' : (state.output ?? 'Loading…');
-  const lines = [`**${name}**&nbsp;&nbsp;&nbsp;&nbsp;**${value}**`];
+  const labelPart = statusBarName ? ` \`${statusBarName}\`` : '';
+  const lines = [`\`░░░░░░ custom ░░░░░░\`  **${name}**${labelPart} **${value}**`];
   if (state.error && error !== 'Not Found') {
-    lines.push(`Error&nbsp;&nbsp;&nbsp;&nbsp;${error}`);
+    lines.push(`Error: ${error}`);
   }
   return { block: lines.join('\n'), updated: updatedAgo(state.updatedAt, nowMs) };
 }
