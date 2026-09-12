@@ -2,6 +2,8 @@
 
 ## 0.1.3 - 2026-09-13
 
+- Add DeepSeek credit balance provider and currency formatting.
+- Add Devin (Cognition) provider with live Connect-RPC and local cache fallback (1w / 1d windows).
 - Compact single-line display for credit and custom providers in Hover.
 - Add positive-only random jitter (+0s ~ +15s) to distribute background refresh requests.
 - Refresh interval UI minimums (30s) and defaults (180s) without 1-hour cap.

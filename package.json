@@ -126,7 +126,8 @@
               "zai",
               "openrouter",
               "opencode",
-              "deepseek"
+              "deepseek",
+              "devin"
             ],
             "items": {
               "type": "string"
@@ -428,6 +429,41 @@
             "default": true,
             "description": "Show DeepSeek remaining balance in the Status Bar. Hover details remain visible.",
             "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Devin",
+        "order": 89,
+        "properties": {
+          "leanQuotaMonitor.devinProviderName": {
+            "type": "string",
+            "default": "Devin",
+            "description": "Display name shown in hover details for Devin quota (default: Devin).",
+            "order": 10
+          },
+          "leanQuotaMonitor.devinStatusBarName": {
+            "type": "string",
+            "default": "DEV",
+            "description": "Status bar name for Devin quota (default: DEV).",
+            "order": 20
+          },
+          "leanQuotaMonitor.devinVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Devin quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          },
+          "leanQuotaMonitor.devinPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "1day",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Devin. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },

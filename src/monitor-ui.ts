@@ -67,6 +67,7 @@ const PROVIDER_SUPPORTED_WINDOWS: Partial<Record<ProviderId, readonly WindowType
   kimi: ['5hour', '1week'],
   zai: ['5hour', '1week'],
   opencode: ['5hour', '1week', '1month'],
+  devin: ['1day', '1week'],
 };
 
 const WINDOW_DESCRIPTIONS: Record<WindowType, string> = {

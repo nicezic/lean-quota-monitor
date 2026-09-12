@@ -1,6 +1,7 @@
 import type { BuiltInProviderDefinition } from './provider-definition.ts';
 import { anthropicProvider } from './providers/anthropic.ts';
 import { deepSeekProvider } from './providers/deepseek.ts';
+import { devinProvider } from './providers/devin.ts';
 import { geminiProvider } from './providers/gemini.ts';
 import { kimiProvider } from './providers/kimi.ts';
 import { miniMaxProvider } from './providers/minimax.ts';
@@ -20,6 +21,7 @@ export const BUILT_IN_PROVIDERS: readonly BuiltInProviderDefinition[] = [
   openRouterProvider,
   openCodeProvider,
   deepSeekProvider,
+  devinProvider,
 ];
 
 const BY_ID = new Map(BUILT_IN_PROVIDERS.map((provider) => [provider.id, provider]));

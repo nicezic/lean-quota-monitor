@@ -25,6 +25,7 @@ Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), a
 | OpenRouter | Credit | `OR` | Management Key in VS Code SecretStorage | |
 | Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / 1w / 1m windows |
 | DeepSeek | Balance | `DS` | API Key in VS Code SecretStorage or `DEEPSEEK_API_KEY` | |
+| Cognition | Devin | `DEV` | Local Devin CLI login | 1w / 1d windows |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
@@ -64,7 +65,7 @@ For first-time setup of extension-owned keys, if the Provider is not visible, op
 
 The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs.
 
-Codex, Claude, and AGY reuse their existing local login/CLI authority. Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
+Codex, Claude, AGY, and Devin reuse their existing local login/CLI authority. Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
 
 Detailed recovery behavior is documented in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 

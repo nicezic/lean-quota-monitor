@@ -622,4 +622,72 @@ Official reference:
 
 ---
 
+## Devin
+
+Implementation: `src/providers/devin.ts`
+
+### Credential authority
+
+```text
+$DEVIN_DATA_DIR/credentials.toml
+        or
+~/.local/share/devin/credentials.toml (Linux/macOS)
+%APPDATA%\devin\credentials.toml (Windows)
+
+└─ windsurf_api_key (or WINDSURF_API_KEY / DEVIN_API_KEY env)
+```
+
+The extension reuses the login token produced by `devin auth login`.
+
+### Acquisition Paths
+
+#### Path 1: `devin-live-rpc` (Primary)
+
+Direct Connect-RPC request to Codeium seat management service:
+
+```text
+POST https://server.codeium.com/exa.seat_management_pb.SeatManagementService/GetUserStatus
+Authorization: Basic <windsurf_api_key>
+Content-Type: application/proto
+Connect-Protocol-Version: 1
+User-Agent: lean-quota-monitor
+```
+
+Body: Protobuf metadata envelope with client `chisel`, version `0.0.0-dev`, session token, and client fingerprint.
+HTTP timeout: 15 seconds.
+
+#### Path 2: `devin-local-cache` (Fallback)
+
+If `devin-live-rpc` fails or offline, the provider falls back to reading the latest local cache file:
+
+```text
+$DEVIN_CACHE_DIR/user_status.*.bin
+        or
+~/.cache/devin/cli/user_status.*.bin (Linux/macOS)
+%LOCALAPPDATA%\devin\user_status.*.bin (Windows)
+
+└─ payload (base64-encoded UserStatus protobuf)
+```
+
+### Parse / normalize
+
+Source fields (from Protobuf `UserStatus.plan_status`):
+
+```text
+Field 14: daily_quota_remaining_percent (0..100)
+Field 15: weekly_quota_remaining_percent (0..100)
+Field 17: daily_quota_reset_at_unix (Unix seconds -> Date)
+Field 18: weekly_quota_reset_at_unix (Unix seconds -> Date)
+```
+
+Normalization:
+
+```text
+daily_quota_remaining_percent  → 1day window
+weekly_quota_remaining_percent → 1week window
+primaryWindow: 1week (preempted by 1day when daily remaining <= 20%)
+```
+
+---
+
 Cross-cutting failure classification, lookup targets, recovery behavior, and redacted diagnostics are defined in [`troubleshooting.md`](troubleshooting.md). Durable acquisition and credential trade-offs are recorded in [`adr/0002-provider-acquisition-boundary.md`](adr/0002-provider-acquisition-boundary.md).

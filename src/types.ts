@@ -7,7 +7,8 @@ export type ProviderId =
   | 'zai'
   | 'openrouter'
   | 'opencode'
-  | 'deepseek';
+  | 'deepseek'
+  | 'devin';
 
 export const WINDOW_TYPES = {
   '5hour': { short: '5h' },

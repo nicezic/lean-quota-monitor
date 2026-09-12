@@ -2,6 +2,13 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseClaudeQuota } from '../src/providers/anthropic.ts';
 import { parseDeepSeekBalance } from '../src/providers/deepseek.ts';
+import {
+  encodeLengthDelimited,
+  encodeVarint,
+  extractDevinApiKey,
+  parseDevinQuota,
+  parseDevinUserStatus,
+} from '../src/providers/devin.ts';
 import { parseAgyQuota } from '../src/providers/gemini.ts';
 import { parseKimiQuota } from '../src/providers/kimi.ts';
 import { parseMiniMaxQuota } from '../src/providers/minimax.ts';
@@ -301,4 +308,67 @@ test('DeepSeek response without valid balance reports SCHEMA_CHANGED', () => {
       return true;
     },
   );
+});
+
+test('parses Devin user status protobuf into weekly and daily quota windows', () => {
+  // Construct PlanStatus protobuf message
+  // Field 14 (dailyPercent) = 100
+  // Field 15 (weeklyPercent) = 98
+  // Field 17 (dailyResetAt) = 1789286400
+  // Field 18 (weeklyResetAt) = 1789286400
+  const planStatusParts: number[] = [
+    ...encodeVarint(14 * 8),
+    ...encodeVarint(100),
+    ...encodeVarint(15 * 8),
+    ...encodeVarint(98),
+    ...encodeVarint(17 * 8),
+    ...encodeVarint(1789286400),
+    ...encodeVarint(18 * 8),
+    ...encodeVarint(1789286400),
+  ];
+  const planStatus = new Uint8Array(planStatusParts);
+
+  // Wrap in UserStatus (Field 13 = planStatus)
+  const userStatus = encodeLengthDelimited(13, planStatus);
+
+  // Wrap in GetUserStatusResponse (Field 1 = userStatus)
+  const responseMsg = encodeLengthDelimited(1, userStatus);
+
+  const raw = parseDevinUserStatus(responseMsg);
+  const snapshot = parseDevinQuota(raw);
+
+  assert.equal(snapshot.kind, 'quota');
+  assert.equal(snapshot.providerId, 'devin');
+  assert.equal(snapshot.presentedWindow, '1week');
+  assert.deepEqual(
+    snapshot.windows.map((x) => [x.type, x.usedPercent, x.remainingPercent]),
+    [
+      ['1week', 2, 98],
+      ['1day', 0, 100],
+    ],
+  );
+  assert.equal(
+    snapshot.windows[0].resetAt?.toISOString(),
+    new Date(1789286400 * 1000).toISOString(),
+  );
+  assert.equal(
+    snapshot.windows[1].resetAt?.toISOString(),
+    new Date(1789286400 * 1000).toISOString(),
+  );
+});
+
+test('Devin response without valid quota windows reports SCHEMA_CHANGED', () => {
+  assert.throws(
+    () => parseDevinQuota({}),
+    (error) => {
+      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
+      return true;
+    },
+  );
+});
+
+test('extractDevinApiKey extracts windsurf_api_key from credentials.toml', () => {
+  const content = 'devin_api_url = "https://api.devin.ai"\nwindsurf_api_key = "test-token-123"\n';
+  assert.equal(extractDevinApiKey(content), 'test-token-123');
+  assert.equal(extractDevinApiKey('other = "value"'), undefined);
 });
