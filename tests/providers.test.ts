@@ -27,10 +27,10 @@ test('parses Gemini bucket ids from agy command_result', () => {
     },
   });
   assert.deepEqual(
-    parseAgyQuota(line).map((x) => [x.label, x.remainingPercent]),
+    parseAgyQuota(line).map((x) => [x.type, x.remainingPercent]),
     [
-      ['Week', 80],
-      ['5h', 90],
+      ['1week', 80],
+      ['5hour', 90],
     ],
   );
 });
@@ -44,10 +44,10 @@ test('parses MiniMax model remains to quota windows', () => {
     ],
   });
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.remainingPercent]),
+    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5h', 76],
-      ['Week', 71],
+      ['5hour', 76],
+      ['1week', 71],
     ],
   );
 });
@@ -74,10 +74,10 @@ test('parses Kimi weekly and 5h quota by duration', () => {
   });
 
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, Math.round(x.remainingPercent)]),
+    snapshot.windows.map((x) => [x.type, Math.round(x.remainingPercent)]),
     [
-      ['5h', 31],
-      ['Week', 90],
+      ['5hour', 31],
+      ['1week', 90],
     ],
   );
 });
@@ -104,10 +104,10 @@ test('parses Codex app-server 5h and weekly windows by duration', () => {
   });
 
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.remainingPercent]),
+    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5h', 80],
-      ['Week', 65],
+      ['5hour', 80],
+      ['1week', 65],
     ],
   );
 });
@@ -117,8 +117,8 @@ test('parses Codex direct quota remaining percentage', () => {
     rate_limit: { primary_window: { used_percent: 10, limit_window_seconds: 604_800 } },
   });
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.remainingPercent]),
-    [['Week', 90]],
+    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
+    [['1week', 90]],
   );
 });
 
@@ -156,10 +156,10 @@ test('parses Z.AI 5h and weekly token windows by type and duration', () => {
   });
 
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.remainingPercent]),
+    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['Week', 48],
-      ['5h', 59.5],
+      ['1week', 48],
+      ['5hour', 59.5],
     ],
   );
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date(1787500000000).toISOString());
@@ -209,11 +209,11 @@ test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
 
   assert.equal(snapshot.kind, 'quota');
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.usedPercent, x.remainingPercent]),
+    snapshot.windows.map((x) => [x.type, x.usedPercent, x.remainingPercent]),
     [
-      ['5h', 25, 75],
-      ['Week', 52.5, 47.5],
-      ['Month', 100, 0],
+      ['5hour', 25, 75],
+      ['1week', 52.5, 47.5],
+      ['1month', 100, 0],
     ],
   );
   assert.equal(
@@ -246,10 +246,10 @@ test('parses Claude OAuth usage windows', () => {
     seven_day: { utilization: 41, resets_at: '2026-08-24T00:00:00Z' },
   });
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.label, x.remainingPercent]),
+    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5h', 77],
-      ['Week', 59],
+      ['5hour', 77],
+      ['1week', 59],
     ],
   );
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), '2026-08-18T15:00:00.000Z');

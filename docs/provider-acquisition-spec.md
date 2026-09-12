@@ -26,8 +26,9 @@ Every successful Built-in Provider refresh returns a UI-neutral `ProviderSnapsho
 ```text
 ProviderSnapshot
 ├─ QuotaSnapshot
+│  ├─ statusType: WindowType
 │  └─ windows[]
-│     ├─ label
+│     ├─ type: WindowType
 │     ├─ usedPercent
 │     ├─ remainingPercent
 │     └─ resetAt?
@@ -39,7 +40,7 @@ ProviderSnapshot
    └─ remainingCredits
 ```
 
-`QuotaSnapshot` represents reset-window subscription limits. `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
+`QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `statusType`, determined via preemption rules (`remainingPercent <= 20%` elevates an urgent shorter window; otherwise provider primary window). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
 Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, and OpenCode Go return `QuotaSnapshot`; OpenRouter returns `CreditSnapshot`.
 
@@ -137,13 +138,13 @@ used_percent
   → remainingPercent = 100 - usedPercent
 
 limit_window_seconds = 18,000
-  → 5h
+  → 5hour
 
 limit_window_seconds = 604,800
-  → Week
+  → 1week
 
 other duration
-  → rounded hour label
+  → rejected (fails closed)
 
 reset_at
   → Unix seconds → Date
@@ -179,12 +180,12 @@ primary / secondary
 Normalization is duration-based rather than position-based:
 
 ```text
-300 minutes    → 5h
-10,080 minutes → Week
-other duration → duration-derived label
+300 minutes    → 5hour
+10,080 minutes → 1week
+other duration → rejected (fails closed)
 ```
 
-`primary` and `secondary` are not assumed to mean 5h and Week respectively. A weekly-only snapshot in `primary` is valid.
+`primary` and `secondary` are not assumed to mean 5hour and 1week respectively. A weekly-only snapshot in `primary` is valid.
 
 ---
 
@@ -229,8 +230,8 @@ seven_day.resets_at
 Normalization:
 
 ```text
-five_hour → 5h
-seven_day → Week
+five_hour → 5hour
+seven_day → 1week
 
 utilization
   → valid range 0..100
@@ -285,8 +286,8 @@ event = command_result
 Only these buckets are used:
 
 ```text
-gemini-5h      → 5h
-gemini-weekly  → Week
+gemini-5h      → 5hour
+gemini-weekly  → 1week
 ```
 
 Normalization:
@@ -348,11 +349,11 @@ MiniMax can return quota for multiple models. The extension independently select
 ```text
 interval models
   → highest used %
-  → 5h representative window
+  → 5hour representative window
 
 weekly models
   → highest used %
-  → Week representative window
+  → 1week representative window
 ```
 
 Normalization:
@@ -401,7 +402,7 @@ usage.limit
 usage.used
 usage.remaining
 usage.resetTime
-  → Week
+  → 1week
 ```
 
 5-hour source:
@@ -411,7 +412,7 @@ limits[]
   → window.duration == 300
   → window.timeUnit == TIME_UNIT_MINUTE
   → detail.limit / used / remaining / resetTime
-  → 5h
+  → 5hour
 ```
 
 The parser selects the 5-hour entry by duration rather than array position. Numeric strings are converted to numbers. `usedPercent` is computed from `used / limit`; when `used` is absent but `remaining` is valid, it is derived from `(limit - remaining) / limit`. Percentages are clamped to `0..100`. Invalid reset timestamps are omitted. A response with no valid weekly or 5-hour window is an error.
@@ -454,10 +455,10 @@ The current known V2-compatible response contains `data.limits[]`. Lean Quota Mo
 
 ```text
 TOKENS_LIMIT + unit=3 + number=5
-  → 5h
+  → 5hour
 
 TOKENS_LIMIT + unit=6 + number=1
-  → Week
+  → 1week
 
 percentage
   → usedPercent
@@ -562,9 +563,9 @@ usage.monthly.percent / resetsAt
 Normalization:
 
 ```text
-rolling  → label 5h
-weekly   → label Week
-monthly  → label Month
+rolling  → 5hour
+weekly   → 1week
+monthly  → 1month
 
 percent
   → clamp 0..100

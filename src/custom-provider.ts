@@ -9,7 +9,7 @@ const execFileAsync = promisify(execFile);
 export const CUSTOM_STATUS_MAX_LENGTH = 10;
 
 export interface CustomProviderConfig {
-  label: string;
+  statusBarName: string;
   script: string;
   visible: boolean;
 }
@@ -24,11 +24,12 @@ export function normalizeCustomProviders(configured: Record<string, unknown>): C
 
     if (!rawConfig || typeof rawConfig !== 'object' || Array.isArray(rawConfig)) continue;
     const candidate = rawConfig as Record<string, unknown>;
-    const label = typeof candidate.label === 'string' ? candidate.label.trim() : '';
+    const statusBarName =
+      typeof candidate.statusBarName === 'string' ? candidate.statusBarName.trim() : '';
     const script = typeof candidate.script === 'string' ? candidate.script.trim() : '';
-    if (!label || !script) continue;
+    if (!statusBarName || !script) continue;
     result[name] = {
-      label,
+      statusBarName,
       script,
       visible: typeof candidate.visible === 'boolean' ? candidate.visible : true,
     };
@@ -59,8 +60,8 @@ export function truncateCustomStatus(value: string): string {
   return `${chars.slice(0, CUSTOM_STATUS_MAX_LENGTH - 1).join('')}…`;
 }
 
-export function formatCustomStatus(label: string, output: string): string {
-  const prefix = label.trim();
+export function formatCustomStatus(statusBarName: string, output: string): string {
+  const prefix = statusBarName.trim();
   return truncateCustomStatus(prefix ? `${prefix} ${output}` : output);
 }
 

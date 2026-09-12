@@ -1,6 +1,6 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import type { CreditSnapshot } from '../types';
+import type { CreditSnapshot } from '../types.ts';
 
 interface OpenRouterCreditsResponse {
   data?: {
@@ -23,8 +23,7 @@ export function parseOpenRouterCredits(body: OpenRouterCreditsResponse): CreditS
 
   return {
     kind: 'credit',
-    id: 'openrouter',
-    label: 'OR',
+    providerId: 'openrouter',
     currency: 'USD',
     totalCredits,
     usedCredits,
@@ -50,8 +49,8 @@ export async function fetchOpenRouterCredits(managementKey: string): Promise<Cre
 
 export const openRouterProvider = defineSecretProvider({
   id: 'openrouter',
-  statusBarFallback: 'OR',
-  displayNameFallback: 'OpenRouter',
+  statusBarName: 'OR',
+  providerName: 'OpenRouter',
   secret: {
     storageKey: 'leanQuotaMonitor.openrouter.managementKey',
     pathId: 'openrouter-credits-api',

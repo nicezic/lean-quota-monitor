@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import process from 'node:process';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 interface ClaudeCredentialFile {
   claudeAiOauth?: {
@@ -24,14 +24,14 @@ interface ClaudeUsageResponse {
 
 function normalizeWindow(
   raw: ClaudeUsageWindow | undefined,
-  label: '5h' | 'Week',
+  type: '5hour' | '1week',
 ): QuotaWindow | undefined {
   if (!raw || !Number.isFinite(raw.utilization)) return undefined;
   const usedPercent = Number(raw.utilization);
   if (usedPercent < 0 || usedPercent > 100) return undefined;
   const resetAt = raw.resets_at ? new Date(raw.resets_at) : undefined;
   return {
-    label,
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt: resetAt && Number.isFinite(resetAt.getTime()) ? resetAt : undefined,
@@ -40,13 +40,14 @@ function normalizeWindow(
 
 export function parseClaudeQuota(body: ClaudeUsageResponse): QuotaSnapshot {
   const windows = [
-    normalizeWindow(body.five_hour, '5h'),
-    normalizeWindow(body.seven_day, 'Week'),
+    normalizeWindow(body.five_hour, '5hour'),
+    normalizeWindow(body.seven_day, '1week'),
   ].filter((value): value is QuotaWindow => Boolean(value));
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Claude quota windows');
   }
-  return { kind: 'quota', id: 'anthropic', label: 'Claude', windows };
+  const statusType = pickStatusWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'anthropic', statusType, windows };
 }
 
 export async function fetchAnthropicQuota(): Promise<QuotaSnapshot> {
@@ -83,8 +84,8 @@ const DARWIN_UNSUPPORTED =
 
 export const anthropicProvider: BuiltInProviderDefinition = {
   id: 'anthropic',
-  statusBarFallback: 'CLA',
-  displayNameFallback: 'Claude',
+  statusBarName: 'CLA',
+  providerName: 'Claude',
   snapshotPlan({ platform }) {
     if (platform === 'darwin') {
       return {

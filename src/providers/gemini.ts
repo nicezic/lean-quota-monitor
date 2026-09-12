@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -50,7 +50,7 @@ export function parseAgyQuota(output: string): QuotaWindow[] {
       const remainingPercent = remainingFraction * 100;
       const resetAt = bucket.reset_time ? new Date(bucket.reset_time) : undefined;
       windows.push({
-        label: bucket.id === 'gemini-5h' ? '5h' : 'Week',
+        type: bucket.id === 'gemini-5h' ? '5hour' : '1week',
         usedPercent: 100 - remainingPercent,
         remainingPercent,
         resetAt: resetAt && Number.isFinite(resetAt.getTime()) ? resetAt : undefined,
@@ -82,13 +82,14 @@ export async function fetchGeminiQuota(): Promise<QuotaSnapshot> {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Gemini quota buckets');
   }
-  return { kind: 'quota', id: 'gemini', label: 'Gem', windows };
+  const statusType = pickStatusWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'gemini', statusType, windows };
 }
 
 export const geminiProvider: BuiltInProviderDefinition = {
   id: 'gemini',
-  statusBarFallback: 'AGY',
-  displayNameFallback: 'Gemini',
+  statusBarName: 'AGY',
+  providerName: 'Gemini',
   snapshotPlan({ platform }) {
     return {
       kind: 'available',

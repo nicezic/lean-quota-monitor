@@ -1,6 +1,11 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import {
+  pickStatusWindow,
+  type QuotaSnapshot,
+  type QuotaWindow,
+  type WindowType,
+} from '../types.ts';
 
 interface KimiUsageDetail {
   limit?: string | number;
@@ -31,7 +36,7 @@ function finiteNumeric(value: unknown): number | undefined {
 
 function normalizeUsage(
   detail: KimiUsageDetail | undefined,
-  label: string,
+  type: WindowType,
 ): QuotaWindow | undefined {
   if (!detail) return undefined;
   const limit = finiteNumeric(detail.limit);
@@ -51,7 +56,7 @@ function normalizeUsage(
   const resetAt = detail.resetTime ? new Date(detail.resetTime) : undefined;
 
   return {
-    label,
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt: resetAt && !Number.isNaN(resetAt.getTime()) ? resetAt : undefined,
@@ -59,19 +64,20 @@ function normalizeUsage(
 }
 
 export function parseKimiQuota(body: KimiUsageResponse): QuotaSnapshot {
-  const weekly = normalizeUsage(body.usage, 'Week');
+  const weekly = normalizeUsage(body.usage, '1week');
   const fiveHour = normalizeUsage(
     body.limits?.find(
       ({ window }) => window?.duration === 300 && window.timeUnit === 'TIME_UNIT_MINUTE',
     )?.detail,
-    '5h',
+    '5hour',
   );
   const windows = [fiveHour, weekly].filter((value): value is QuotaWindow => Boolean(value));
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'Unsupported Kimi quota response');
   }
 
-  return { kind: 'quota', id: 'kimi', label: 'KIMI', windows };
+  const statusType = pickStatusWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'kimi', statusType, windows };
 }
 
 export async function fetchKimiQuota(apiKey: string): Promise<QuotaSnapshot> {
@@ -92,8 +98,8 @@ export async function fetchKimiQuota(apiKey: string): Promise<QuotaSnapshot> {
 
 export const kimiProvider = defineSecretProvider({
   id: 'kimi',
-  statusBarFallback: 'KIMI',
-  displayNameFallback: 'Kimi',
+  statusBarName: 'KIMI',
+  providerName: 'Kimi',
   secret: {
     storageKey: 'leanQuotaMonitor.kimi.apiKey',
     pathId: 'kimi-api-key',

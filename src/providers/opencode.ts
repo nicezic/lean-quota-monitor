@@ -1,6 +1,11 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import {
+  pickStatusWindow,
+  type QuotaSnapshot,
+  type QuotaWindow,
+  type WindowType,
+} from '../types.ts';
 
 interface OpenCodeGoUsageWindow {
   percent?: number;
@@ -17,14 +22,14 @@ interface OpenCodeGoUsageResponse {
 
 function normalizeWindow(
   raw: OpenCodeGoUsageWindow | undefined,
-  label: string,
+  type: WindowType,
 ): QuotaWindow | undefined {
   if (!raw || typeof raw.percent !== 'number' || !Number.isFinite(raw.percent)) return undefined;
   const usedPercent = Math.max(0, Math.min(100, raw.percent));
   const resetAt =
     typeof raw.resetsAt === 'string' && raw.resetsAt !== '' ? new Date(raw.resetsAt) : undefined;
   return {
-    label,
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt: resetAt && !Number.isNaN(resetAt.getTime()) ? resetAt : undefined,
@@ -33,9 +38,9 @@ function normalizeWindow(
 
 export function parseOpenCodeGoUsage(body: OpenCodeGoUsageResponse): QuotaSnapshot {
   const windows = [
-    normalizeWindow(body.usage?.rolling, '5h'),
-    normalizeWindow(body.usage?.weekly, 'Week'),
-    normalizeWindow(body.usage?.monthly, 'Month'),
+    normalizeWindow(body.usage?.rolling, '5hour'),
+    normalizeWindow(body.usage?.weekly, '1week'),
+    normalizeWindow(body.usage?.monthly, '1month'),
   ].filter((value): value is QuotaWindow => Boolean(value));
   if (windows.length === 0) {
     throw new ProviderError(
@@ -44,7 +49,8 @@ export function parseOpenCodeGoUsage(body: OpenCodeGoUsageResponse): QuotaSnapsh
       'Expected usage.rolling/weekly/monthly with percent.',
     );
   }
-  return { kind: 'quota', id: 'opencode', label: 'OCG', windows };
+  const statusType = pickStatusWindow(windows, '1month');
+  return { kind: 'quota', providerId: 'opencode', statusType, windows };
 }
 
 export async function fetchOpenCodeGoUsage(apiKey: string): Promise<QuotaSnapshot> {
@@ -71,8 +77,8 @@ export async function fetchOpenCodeGoUsage(apiKey: string): Promise<QuotaSnapsho
 
 export const openCodeProvider = defineSecretProvider({
   id: 'opencode',
-  statusBarFallback: 'OCG',
-  displayNameFallback: 'OpenCode Go',
+  statusBarName: 'OCG',
+  providerName: 'OpenCode Go',
   secret: {
     storageKey: 'leanQuotaMonitor.opencode.apiKey',
     pathId: 'opencode-go-usage-api',

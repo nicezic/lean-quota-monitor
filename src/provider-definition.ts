@@ -53,16 +53,16 @@ export interface BuiltInSecretDefinition {
 
 export interface BuiltInProviderDefinition {
   id: ProviderId;
-  statusBarFallback: string;
-  displayNameFallback: string;
+  statusBarName: string;
+  providerName: string;
   secret?: BuiltInSecretDefinition;
   snapshotPlan(context: BuiltInProviderContext): ProviderPlan;
 }
 
 interface SecretProviderDefinition {
   id: ProviderId;
-  statusBarFallback: string;
-  displayNameFallback: string;
+  statusBarName: string;
+  providerName: string;
   secret: BuiltInSecretDefinition;
 }
 

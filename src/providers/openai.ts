@@ -5,7 +5,12 @@ import * as path from 'node:path';
 import process from 'node:process';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import {
+  pickStatusWindow,
+  type QuotaSnapshot,
+  type QuotaWindow,
+  type WindowType,
+} from '../types.ts';
 
 interface CodexAuthFile {
   tokens?: {
@@ -44,11 +49,10 @@ interface CodexUsageResponse {
   };
 }
 
-function labelForMinutes(minutes: number): string {
-  if (minutes === 300) return '5h';
-  if (minutes === 10_080) return 'Week';
-  if (minutes > 0 && minutes % 60 === 0) return `${minutes / 60}h`;
-  return `${minutes}m`;
+function typeForMinutes(minutes: number): WindowType | undefined {
+  if (minutes === 300) return '5hour';
+  if (minutes === 10_080) return '1week';
+  return undefined;
 }
 
 function normalizeDirectWindow(raw: CodexWindow | undefined): QuotaWindow | undefined {
@@ -56,9 +60,11 @@ function normalizeDirectWindow(raw: CodexWindow | undefined): QuotaWindow | unde
   const usedPercent = Math.max(0, Math.min(100, Number(raw.used_percent)));
   const seconds = Number(raw.limit_window_seconds);
   if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  const type = typeForMinutes(Math.round(seconds / 60));
+  if (!type) return undefined;
   const resetSeconds = Number(raw.reset_at);
   return {
-    label: labelForMinutes(Math.round(seconds / 60)),
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt:
@@ -75,8 +81,10 @@ function normalizeAppServerWindow(
   const usedPercent = Math.max(0, Math.min(100, Number(raw.usedPercent)));
   const minutes = Number(raw.windowDurationMins);
   if (minutes <= 0) return undefined;
+  const type = typeForMinutes(minutes);
+  if (!type) return undefined;
   return {
-    label: labelForMinutes(minutes),
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt: Number.isFinite(raw.resetsAt) ? new Date(Number(raw.resetsAt) * 1000) : undefined,
@@ -100,7 +108,8 @@ export function parseCodexAppServerRateLimits(
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Codex app-server quota windows');
   }
-  return { kind: 'quota', id: 'openai', label: 'OAI', windows };
+  const statusType = pickStatusWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'openai', statusType, windows };
 }
 
 export function parseCodexDirectQuota(body: CodexUsageResponse): QuotaSnapshot {
@@ -111,7 +120,8 @@ export function parseCodexDirectQuota(body: CodexUsageResponse): QuotaSnapshot {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Codex quota windows');
   }
-  return { kind: 'quota', id: 'openai', label: 'OAI', windows };
+  const statusType = pickStatusWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'openai', statusType, windows };
 }
 
 export async function fetchOpenAIQuota(): Promise<QuotaSnapshot> {
@@ -244,8 +254,8 @@ export function fetchOpenAIQuotaFromAppServer(): Promise<QuotaSnapshot> {
 
 export const openAIProvider: BuiltInProviderDefinition = {
   id: 'openai',
-  statusBarFallback: 'GPT',
-  displayNameFallback: 'Codex',
+  statusBarName: 'GPT',
+  providerName: 'Codex',
   snapshotPlan() {
     const codexHome = process.env.CODEX_HOME || path.join(os.homedir(), '.codex');
     return {

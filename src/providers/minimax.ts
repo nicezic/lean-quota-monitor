@@ -1,6 +1,6 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 interface MiniMaxModel {
   current_interval_remaining_percent?: number;
@@ -46,7 +46,7 @@ function aggregate(models: MiniMaxModel[], kind: 'interval' | 'weekly'): QuotaWi
 
   if (selectedRemaining === undefined) return undefined;
   return {
-    label: kind === 'interval' ? '5h' : 'Week',
+    type: kind === 'interval' ? '5hour' : '1week',
     usedPercent: 100 - selectedRemaining,
     remainingPercent: selectedRemaining,
     resetAt: selectedEndTime !== undefined ? new Date(selectedEndTime) : undefined,
@@ -64,10 +64,11 @@ export function parseMiniMaxQuota(body: MiniMaxResponse): QuotaSnapshot {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No MiniMax model quota');
   }
+  const statusType = pickStatusWindow(windows, '1week');
   return {
     kind: 'quota',
-    id: 'minimax',
-    label: 'MM',
+    providerId: 'minimax',
+    statusType,
     windows,
   };
 }
@@ -90,8 +91,8 @@ export async function fetchMiniMaxQuota(apiKey: string): Promise<QuotaSnapshot> 
 
 export const miniMaxProvider = defineSecretProvider({
   id: 'minimax',
-  statusBarFallback: 'M3',
-  displayNameFallback: 'MiniMax',
+  statusBarName: 'M3',
+  providerName: 'MiniMax',
   secret: {
     storageKey: 'leanQuotaMonitor.minimax.apiKey',
     pathId: 'minimax-token-plan-api',

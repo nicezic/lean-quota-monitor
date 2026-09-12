@@ -1,6 +1,11 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import type { QuotaSnapshot, QuotaWindow } from '../types';
+import {
+  pickStatusWindow,
+  type QuotaSnapshot,
+  type QuotaWindow,
+  type WindowType,
+} from '../types.ts';
 
 interface ZaiQuotaLimit {
   type?: string;
@@ -31,14 +36,14 @@ function normalizeWindow(limit: ZaiQuotaLimit): QuotaWindow | undefined {
   const usedPercent = finiteNumeric(limit.percentage);
   if (usedPercent === undefined || usedPercent < 0 || usedPercent > 100) return undefined;
 
-  let label: string | undefined;
-  if (unit === 3 && number === 5) label = '5h';
-  if (unit === 6 && number === 1) label = 'Week';
-  if (!label) return undefined;
+  let type: WindowType | undefined;
+  if (unit === 3 && number === 5) type = '5hour';
+  if (unit === 6 && number === 1) type = '1week';
+  if (!type) return undefined;
 
   const resetMs = finiteNumeric(limit.nextResetTime);
   return {
-    label,
+    type,
     usedPercent,
     remainingPercent: 100 - usedPercent,
     resetAt: resetMs !== undefined ? new Date(resetMs) : undefined,
@@ -58,10 +63,11 @@ export function parseZaiQuota(body: ZaiQuotaResponse): QuotaSnapshot {
     );
   }
 
+  const statusType = pickStatusWindow(windows, '1week');
   return {
     kind: 'quota',
-    id: 'zai',
-    label: 'GLM',
+    providerId: 'zai',
+    statusType,
     windows,
   };
 }
@@ -86,8 +92,8 @@ export async function fetchZaiQuota(apiKey: string): Promise<QuotaSnapshot> {
 
 export const zaiProvider = defineSecretProvider({
   id: 'zai',
-  statusBarFallback: 'GLM',
-  displayNameFallback: 'Z.AI / GLM',
+  statusBarName: 'GLM',
+  providerName: 'Z.AI / GLM',
   secret: {
     storageKey: 'leanQuotaMonitor.zai.apiKey',
     pathId: 'zai-quota-api',

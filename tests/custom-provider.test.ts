@@ -45,13 +45,21 @@ test('custom status truncates to ten characters including ellipsis', () => {
 test('custom provider config requires Provider Name, Status Bar Name, and Script Path', () => {
   assert.deepEqual(
     normalizeCustomProviders({
-      MyProviderName: { label: 'MY', script: '~/.local/bin/my-provider-credit', visible: false },
+      MyProviderName: {
+        statusBarName: 'MY',
+        script: '~/.local/bin/my-provider-credit',
+        visible: false,
+      },
       MissingLabel: { script: '~/.local/bin/missing-label' },
-      EmptyLabel: { label: '   ', script: '~/.local/bin/empty-label' },
+      EmptyLabel: { statusBarName: '   ', script: '~/.local/bin/empty-label' },
       LegacyString: '~/.local/bin/legacy-credit',
     }),
     {
-      MyProviderName: { label: 'MY', script: '~/.local/bin/my-provider-credit', visible: false },
+      MyProviderName: {
+        statusBarName: 'MY',
+        script: '~/.local/bin/my-provider-credit',
+        visible: false,
+      },
     },
   );
 });
@@ -59,10 +67,14 @@ test('custom provider config requires Provider Name, Status Bar Name, and Script
 test('custom provider visibility defaults on', () => {
   assert.deepEqual(
     normalizeCustomProviders({
-      MyProviderName: { label: 'MY', script: '~/.local/bin/my-provider-credit' },
+      MyProviderName: { statusBarName: 'MY', script: '~/.local/bin/my-provider-credit' },
     }),
     {
-      MyProviderName: { label: 'MY', script: '~/.local/bin/my-provider-credit', visible: true },
+      MyProviderName: {
+        statusBarName: 'MY',
+        script: '~/.local/bin/my-provider-credit',
+        visible: true,
+      },
     },
   );
 });
