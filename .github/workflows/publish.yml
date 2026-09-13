@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   publish:
-    name: Publish to VS Code Marketplace
+    name: Publish to VS Code Marketplace and Open VSX
     runs-on: ubuntu-latest
 
     steps:
@@ -47,7 +47,12 @@ jobs:
       - name: Check and compile
         run: pnpm run check
 
-      - name: Publish extension
+      - name: Publish to VS Code Marketplace
         run: pnpm exec vsce publish --no-dependencies
         env:
           VSCE_PAT: ${{ secrets.AZURE_PAT_PERSONAL_ACCESS_TOKENS }}
+
+      - name: Publish to Open VSX
+        run: CI=true pnpm dlx ovsx publish --no-dependencies
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
