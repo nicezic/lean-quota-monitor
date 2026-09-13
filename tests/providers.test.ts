@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseClaudeQuota } from '../src/providers/anthropic.ts';
+import { parseCopilotQuota } from '../src/providers/copilot.ts';
 import { parseDeepSeekBalance } from '../src/providers/deepseek.ts';
 import {
   encodeLengthDelimited,
@@ -371,4 +372,48 @@ test('extractDevinApiKey extracts windsurf_api_key from credentials.toml', () =>
   const content = 'devin_api_url = "https://api.devin.ai"\nwindsurf_api_key = "test-token-123"\n';
   assert.equal(extractDevinApiKey(content), 'test-token-123');
   assert.equal(extractDevinApiKey('other = "value"'), undefined);
+});
+
+test('parses Copilot premium interactions into a 1month quota snapshot', () => {
+  const snapshot = parseCopilotQuota({
+    copilot_plan: 'individual',
+    quota_reset_date: '2026-10-01',
+    quota_snapshots: {
+      premium_interactions: {
+        entitlement: 200,
+        remaining: 191,
+        percent_remaining: 95.5,
+        has_quota: true,
+      },
+    },
+  });
+
+  assert.equal(snapshot.kind, 'quota');
+  assert.equal(snapshot.providerId, 'copilot');
+  assert.equal(snapshot.presentedWindow, '1month');
+  assert.equal(snapshot.windows.length, 1);
+  assert.equal(snapshot.windows[0].type, '1month');
+  assert.equal(snapshot.windows[0].remainingPercent, 95.5);
+  assert.equal(snapshot.windows[0].usedPercent, 4.5);
+  assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date('2026-10-01').toISOString());
+});
+
+test('Copilot free tier without premium quota reports PLAN_REQUIRED', () => {
+  assert.throws(
+    () =>
+      parseCopilotQuota({
+        copilot_plan: 'individual',
+        quota_snapshots: {
+          premium_interactions: {
+            entitlement: 0,
+            remaining: 0,
+            has_quota: false,
+          },
+        },
+      }),
+    (error) => {
+      assert.equal((error as { code?: string }).code, 'PLAN_REQUIRED');
+      return true;
+    },
+  );
 });

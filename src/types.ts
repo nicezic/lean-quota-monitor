@@ -8,7 +8,8 @@ export type ProviderId =
   | 'openrouter'
   | 'opencode'
   | 'deepseek'
-  | 'devin';
+  | 'devin'
+  | 'copilot';
 
 export const WINDOW_TYPES = {
   '5hour': { short: '5h' },

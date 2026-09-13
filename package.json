@@ -468,8 +468,42 @@
         }
       },
       {
-        "title": "Lean Quota Monitor: Custom Providers",
+        "title": "Lean Quota Monitor: GitHub Copilot",
         "order": 90,
+        "properties": {
+          "leanQuotaMonitor.copilotProviderName": {
+            "type": "string",
+            "default": "GitHub Copilot",
+            "description": "Display name shown in hover details for GitHub Copilot quota (default: GitHub Copilot).",
+            "order": 10
+          },
+          "leanQuotaMonitor.copilotStatusBarName": {
+            "type": "string",
+            "default": "Copilot",
+            "description": "Status bar name for GitHub Copilot quota (default: Copilot).",
+            "order": 20
+          },
+          "leanQuotaMonitor.copilotVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show GitHub Copilot quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          },
+          "leanQuotaMonitor.copilotPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "1month"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for GitHub Copilot. 'auto' uses the provider default (1month); a window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Custom Providers",
+        "order": 100,
         "properties": {
           "leanQuotaMonitor.customProviders": {
             "type": "object",

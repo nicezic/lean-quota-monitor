@@ -690,4 +690,29 @@ primaryWindow: 1week (preempted by 1day when daily remaining <= 20%)
 
 ---
 
+## GitHub Copilot
+
+### Acquisition Paths
+
+1. `gh-cli`: Run `gh auth token` CLI to obtain an OAuth token.
+2. `secret-token`: Read `leanQuotaMonitor.copilotToken` from VS Code SecretStorage.
+
+Endpoint:
+```text
+GET https://api.github.com/copilot_internal/user
+Authorization: token <github_token>
+Editor-Version: vscode/1.96.2
+Editor-Plugin-Version: copilot-chat/0.26.7
+User-Agent: GitHubCopilotChat/0.26.7
+X-Github-Api-Version: 2025-04-01
+```
+
+### Parse / normalize
+
+- Source field: `quota_snapshots.premium_interactions` only (chat and completions are omitted per Ponytail YAGNI).
+- Free plans without premium quota (`entitlement: 0`, `has_quota: false`): raises `PLAN_REQUIRED`.
+- Window mapping: `1month` window (`WINDOW_TYPES['1month']`, short `1m`). Reset date from `quota_reset_date_utc` or `quota_reset_date`.
+
+---
+
 Cross-cutting failure classification, lookup targets, recovery behavior, and redacted diagnostics are defined in [`troubleshooting.md`](troubleshooting.md). Durable acquisition and credential trade-offs are recorded in [`adr/0002-provider-acquisition-boundary.md`](adr/0002-provider-acquisition-boundary.md).
