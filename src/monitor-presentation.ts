@@ -3,9 +3,11 @@ import { type CustomProviderConfig, formatCustomStatus } from './custom-provider
 import { isProviderError } from './provider-error.ts';
 import {
   type ProviderSnapshot,
+  pickPresentedWindow,
   type QuotaSnapshot,
   type QuotaWindow,
   WINDOW_TYPES,
+  type WindowType,
 } from './types.ts';
 
 export interface ProviderState {
@@ -52,14 +54,17 @@ function shortPercent(value: number): string {
   return `${Math.round(value)}%`;
 }
 
-function creditAmount(value: number): string {
-  return `$${Math.max(0, value).toFixed(2)}`;
-}
-
-function statusWindow(snapshot: QuotaSnapshot): QuotaWindow | undefined {
-  return (
-    snapshot.windows.find((window) => window.type === snapshot.statusType) ?? snapshot.windows[0]
-  );
+function presentedWindow(
+  snapshot: QuotaSnapshot,
+  primaryWindow?: WindowType,
+  warningThreshold: number | null = 20,
+): QuotaWindow | undefined {
+  const primary =
+    primaryWindow && snapshot.windows.some((window) => window.type === primaryWindow)
+      ? primaryWindow
+      : snapshot.presentedWindow;
+  const type = pickPresentedWindow(snapshot.windows, primary, warningThreshold);
+  return snapshot.windows.find((window) => window.type === type) ?? snapshot.windows[0];
 }
 
 function resetRemaining(resetAt: Date | undefined, nowMs = Date.now()): string {
@@ -84,21 +89,30 @@ export function customHasCurrentData(state: CustomProviderState): boolean {
 export function providerStatusText(
   statusBarName: string,
   state: ProviderState,
+  primaryWindow?: WindowType,
+  warningThreshold: number | null = 20,
   nowMs = Date.now(),
 ): string {
+  if (typeof warningThreshold === 'number' && warningThreshold > 100) {
+    nowMs = warningThreshold;
+    warningThreshold = 20;
+  }
+
   if (state.error) return `${statusBarName} --`;
   if (!state.snapshot) return `${statusBarName} …`;
 
   if (state.snapshot.kind === 'credit') {
-    return `${statusBarName} ${creditAmount(state.snapshot.remainingCredits)}`;
+    return `${statusBarName} ${state.snapshot.formattedRemaining}`;
   }
 
-  const window = statusWindow(state.snapshot);
+  const window = presentedWindow(state.snapshot, primaryWindow, warningThreshold);
   if (!window) return `${statusBarName} --`;
 
   const reset = resetRemaining(window.resetAt, nowMs);
   const short = WINDOW_TYPES[window.type].short;
-  return `${statusBarName} ${shortPercent(window.remainingPercent)} ${short}${reset ? ` ${reset}` : ''}`;
+  const isWarning = warningThreshold !== null && window.remainingPercent <= warningThreshold;
+  const warningPrefix = isWarning ? '⚠️ ' : '';
+  return `${warningPrefix}${statusBarName} ${shortPercent(window.remainingPercent)} ${short}${reset ? ` ${reset}` : ''}`;
 }
 
 export function customStatusText(config: CustomProviderConfig, state: CustomProviderState): string {
@@ -114,16 +128,6 @@ export function formatDateTime(value: Date | undefined): string {
   if (!value || Number.isNaN(value.getTime())) return '--';
   const pad = (part: number) => String(part).padStart(2, '0');
   return `${pad(value.getMonth() + 1)}/${pad(value.getDate())} ${pad(value.getHours())}:${pad(value.getMinutes())}`;
-}
-
-function resetRemainingDetailed(resetAt: Date | undefined, nowMs = Date.now()): string {
-  if (!resetAt || Number.isNaN(resetAt.getTime())) return '--';
-  const remainingMinutes = Math.max(0, Math.ceil((resetAt.getTime() - nowMs) / 60_000));
-  const days = Math.floor(remainingMinutes / 1_440);
-  const hours = Math.floor((remainingMinutes % 1_440) / 60);
-  const minutes = remainingMinutes % 60;
-  const clock = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-  return days > 0 ? `${days}d ${clock}` : clock;
 }
 
 function updatedAgo(updatedAt: Date | undefined, nowMs = Date.now()): string {
@@ -155,27 +159,41 @@ function quickProgressBar(remainingPercent: number): string {
   return `${'█'.repeat(filled)}${'░'.repeat(width - filled)}`;
 }
 
-export function quickProviderDescription(state: ProviderState, nowMs = Date.now()): string {
+export const CREDIT_BADGE = '░░░░░░ credit ░░░░░░';
+export const CUSTOM_BADGE = '░░░░░░ custom ░░░░░░';
+
+export function quickProviderPrefix(
+  state: ProviderState,
+  primaryWindow?: WindowType,
+  warningThreshold: number | null = 20,
+): string | undefined {
+  if (state.error || !state.snapshot) return undefined;
+  if (state.snapshot.kind === 'credit') return '[credit]';
+  const window = presentedWindow(state.snapshot, primaryWindow, warningThreshold);
+  return window ? quickProgressBar(window.remainingPercent) : undefined;
+}
+
+export function quickProviderDescription(
+  state: ProviderState,
+  primaryWindow?: WindowType,
+  warningThreshold: number | null = 20,
+  nowMs = Date.now(),
+): string {
+  if (typeof warningThreshold === 'number' && warningThreshold > 100) {
+    nowMs = warningThreshold;
+    warningThreshold = 20;
+  }
   if (state.error) return providerErrorSummary(state.error);
   if (!state.snapshot) return 'Loading…';
   if (state.snapshot.kind === 'credit') {
-    return `Remaining ${creditAmount(state.snapshot.remainingCredits)}`;
+    return `Remaining ${state.snapshot.formattedRemaining}`;
   }
-  const window = statusWindow(state.snapshot);
+  const window = presentedWindow(state.snapshot, primaryWindow, warningThreshold);
   if (!window) return '--';
   const reset = resetRemaining(window.resetAt, nowMs);
-  const short = WINDOW_TYPES[window.type].short;
-  return `${quickProgressBar(window.remainingPercent)} ${shortPercent(window.remainingPercent)} ${short}${reset ? ` · ${reset}` : ''}`;
-}
-
-export function quickProviderDetail(state: ProviderState, nowMs = Date.now()): string | undefined {
-  if (state.error || !state.snapshot || state.snapshot.kind === 'credit') return undefined;
-  return state.snapshot.windows
-    .map((window) => {
-      const reset = resetRemainingDetailed(window.resetAt, nowMs);
-      return `${window.type} ${shortPercent(window.remainingPercent)}${reset !== '--' ? ` · ${reset}` : ''}`;
-    })
-    .join(' | ');
+  const isWarning = warningThreshold !== null && window.remainingPercent <= warningThreshold;
+  const warningPrefix = isWarning ? '⚠️ ' : '';
+  return `${warningPrefix}[${window.type}] ${shortPercent(window.remainingPercent)}${reset ? ` · ${reset}` : ''}`;
 }
 
 function resetDuration(resetAt: Date | undefined, nowMs = Date.now()): string {
@@ -199,8 +217,15 @@ export function providerDetail(
   providerName: string,
   statusBarName: string,
   state: ProviderState,
+  primaryWindow?: WindowType,
+  warningThreshold: number | null = 20,
   nowMs = Date.now(),
 ): { block: string; updated: string } {
+  if (typeof warningThreshold === 'number' && warningThreshold > 100) {
+    nowMs = warningThreshold;
+    warningThreshold = 20;
+  }
+
   if (state.error) {
     const message = displayError(state.error);
     return {
@@ -218,12 +243,12 @@ export function providerDetail(
 
   if (state.snapshot.kind === 'credit') {
     return {
-      block: `\`░░░░░░ credit ░░░░░░\`  **${providerName}** \`${statusBarName}\` **${creditAmount(state.snapshot.remainingCredits)}**`,
+      block: `\`${CREDIT_BADGE}\`  **${providerName}** \`${statusBarName}\` **${state.snapshot.formattedRemaining}**`,
       updated: updatedAgo(state.updatedAt, nowMs),
     };
   }
 
-  const window = statusWindow(state.snapshot);
+  const window = presentedWindow(state.snapshot, primaryWindow, warningThreshold);
   if (!window) {
     return { block: `${providerName.padEnd(7)}--`, updated: updatedAgo(state.updatedAt, nowMs) };
   }
@@ -263,7 +288,7 @@ export function customDetail(
   const error = state.error ? displayError(state.error) : undefined;
   const value = error === 'Not Found' ? error : state.error ? '--' : (state.output ?? 'Loading…');
   const labelPart = statusBarName ? ` \`${statusBarName}\`` : '';
-  const lines = [`\`░░░░░░ custom ░░░░░░\`  **${name}**${labelPart} **${value}**`];
+  const lines = [`\`${CUSTOM_BADGE}\`  **${name}**${labelPart} **${value}**`];
   if (state.error && error !== 'Not Found') {
     lines.push(`Error: ${error}`);
   }

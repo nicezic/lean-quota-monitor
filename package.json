@@ -94,6 +94,24 @@
             "description": "Status Bar placement: right or left (default: right, restart required).",
             "order": 15
           },
+          "leanQuotaMonitor.lowQuotaWarningThreshold": {
+            "type": "string",
+            "enum": [
+              "off",
+              "5%",
+              "10%",
+              "15%",
+              "20%",
+              "25%",
+              "30%",
+              "40%",
+              "50%",
+              "60%"
+            ],
+            "default": "20%",
+            "description": "Remaining quota percentage threshold that triggers a ⚠️ warning in the Status Bar (default: 20%). When any duration window (5hour, 1day, 1week, 1month) drops to or below this threshold, it temporarily replaces the default window with a ⚠️ warning. Select 'off' to disable warnings and keep the default window pinned.",
+            "order": 16
+          },
           "leanQuotaMonitor.providerOrder": {
             "type": [
               "array",
@@ -139,6 +157,17 @@
             "default": true,
             "description": "Show OpenAI Codex quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.openaiPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for OpenAI Codex. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -163,6 +192,17 @@
             "default": true,
             "description": "Show Anthropic Claude quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.anthropicPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Anthropic Claude. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -187,6 +227,17 @@
             "default": true,
             "description": "Show Gemini quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.geminiPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Gemini. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -211,6 +262,17 @@
             "default": true,
             "description": "Show MiniMax quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.minimaxPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for MiniMax. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -235,6 +297,17 @@
             "default": true,
             "description": "Show Kimi Code quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.kimiPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Kimi Code. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -259,6 +332,17 @@
             "default": true,
             "description": "Show Z.AI GLM Coding Plan quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.zaiPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Z.AI GLM Coding Plan. 'auto' uses the provider default (longest duration: 1week); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },
@@ -307,6 +391,18 @@
             "default": true,
             "description": "Show OpenCode Go quota in the Status Bar. Hover details remain visible.",
             "order": 30
+          },
+          "leanQuotaMonitor.opencodePrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week",
+              "1month"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for OpenCode Go. 'auto' uses the provider default (longest duration: 1month); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
           }
         }
       },

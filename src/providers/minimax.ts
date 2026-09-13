@@ -1,6 +1,6 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
-import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
+import { pickPresentedWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 interface MiniMaxModel {
   current_interval_remaining_percent?: number;
@@ -64,11 +64,11 @@ export function parseMiniMaxQuota(body: MiniMaxResponse): QuotaSnapshot {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No MiniMax model quota');
   }
-  const statusType = pickStatusWindow(windows, '1week');
+  const presentedWindow = pickPresentedWindow(windows, '1week');
   return {
     kind: 'quota',
     providerId: 'minimax',
-    statusType,
+    presentedWindow,
     windows,
   };
 }

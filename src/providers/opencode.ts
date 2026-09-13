@@ -1,7 +1,7 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
 import {
-  pickStatusWindow,
+  pickPresentedWindow,
   type QuotaSnapshot,
   type QuotaWindow,
   type WindowType,
@@ -49,8 +49,8 @@ export function parseOpenCodeGoUsage(body: OpenCodeGoUsageResponse): QuotaSnapsh
       'Expected usage.rolling/weekly/monthly with percent.',
     );
   }
-  const statusType = pickStatusWindow(windows, '1month');
-  return { kind: 'quota', providerId: 'opencode', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1month');
+  return { kind: 'quota', providerId: 'opencode', presentedWindow, windows };
 }
 
 export async function fetchOpenCodeGoUsage(apiKey: string): Promise<QuotaSnapshot> {

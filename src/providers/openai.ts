@@ -6,7 +6,7 @@ import process from 'node:process';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
 import {
-  pickStatusWindow,
+  pickPresentedWindow,
   type QuotaSnapshot,
   type QuotaWindow,
   type WindowType,
@@ -108,8 +108,8 @@ export function parseCodexAppServerRateLimits(
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Codex app-server quota windows');
   }
-  const statusType = pickStatusWindow(windows, '1week');
-  return { kind: 'quota', providerId: 'openai', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'openai', presentedWindow, windows };
 }
 
 export function parseCodexDirectQuota(body: CodexUsageResponse): QuotaSnapshot {
@@ -120,8 +120,8 @@ export function parseCodexDirectQuota(body: CodexUsageResponse): QuotaSnapshot {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Codex quota windows');
   }
-  const statusType = pickStatusWindow(windows, '1week');
-  return { kind: 'quota', providerId: 'openai', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'openai', presentedWindow, windows };
 }
 
 export async function fetchOpenAIQuota(): Promise<QuotaSnapshot> {

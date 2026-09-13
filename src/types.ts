@@ -24,48 +24,35 @@ export interface QuotaWindow {
   resetAt?: Date;
 }
 
-const DURATION_PRIORITY: Record<WindowType, number> = {
+const WINDOW_PRIORITY: Record<WindowType, number> = {
   '5hour': 0,
   '1day': 1,
   '1week': 2,
   '1month': 3,
 };
 
-export function pickStatusWindow(
-  windows: readonly QuotaWindow[],
-  primaryType: WindowType,
+// ponytail: sorts the passed array in place (longest window first) — every provider
+// calls this before returning its snapshot, so stored snapshots stay normalized.
+export function pickPresentedWindow(
+  windows: QuotaWindow[],
+  primaryWindow: WindowType,
+  warningThreshold: number | null = 20,
 ): WindowType {
-  if (windows.length === 0) return primaryType;
+  windows.sort((a, b) => WINDOW_PRIORITY[b.type] - WINDOW_PRIORITY[a.type]);
+  if (windows.length === 0) return primaryWindow;
 
-  const primary = windows.find((w) => w.type === primaryType) ?? windows[0];
-  const urgentWindows = windows.filter((w) => w.remainingPercent <= 20);
+  const primary = windows.find((w) => w.type === primaryWindow) ?? windows[0];
+  if (warningThreshold === null) return primary.type;
 
-  if (urgentWindows.length === 0) {
-    return primary.type;
-  }
+  const urgent = windows
+    .filter((w) => w.remainingPercent <= warningThreshold)
+    .sort(
+      (a, b) =>
+        a.remainingPercent - b.remainingPercent ||
+        WINDOW_PRIORITY[a.type] - WINDOW_PRIORITY[b.type],
+    );
 
-  let best = urgentWindows[0];
-  for (let i = 1; i < urgentWindows.length; i++) {
-    const current = urgentWindows[i];
-    if (current.remainingPercent < best.remainingPercent) {
-      best = current;
-    } else if (current.remainingPercent === best.remainingPercent) {
-      if (DURATION_PRIORITY[current.type] < DURATION_PRIORITY[best.type]) {
-        best = current;
-      }
-    }
-  }
-
-  if (primary.remainingPercent <= 20) {
-    if (best.remainingPercent < primary.remainingPercent) return best.type;
-    if (best.remainingPercent === primary.remainingPercent) {
-      return DURATION_PRIORITY[best.type] <= DURATION_PRIORITY[primary.type]
-        ? best.type
-        : primary.type;
-    }
-  }
-
-  return best.type;
+  return urgent[0]?.type ?? primary.type;
 }
 
 interface SnapshotBase {
@@ -75,16 +62,17 @@ interface SnapshotBase {
 
 export interface QuotaSnapshot extends SnapshotBase {
   kind: 'quota';
-  statusType: WindowType;
+  presentedWindow: WindowType;
   windows: QuotaWindow[];
 }
 
 export interface CreditSnapshot extends SnapshotBase {
   kind: 'credit';
-  currency: 'USD';
+  currency: string;
   totalCredits: number;
   usedCredits: number;
   remainingCredits: number;
+  formattedRemaining: string;
 }
 
 export type ProviderSnapshot = QuotaSnapshot | CreditSnapshot;

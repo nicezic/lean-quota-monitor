@@ -26,7 +26,7 @@ Every successful Built-in Provider refresh returns a UI-neutral `ProviderSnapsho
 ```text
 ProviderSnapshot
 ├─ QuotaSnapshot
-│  ├─ statusType: WindowType
+│  ├─ presentedWindow: WindowType
 │  └─ windows[]
 │     ├─ type: WindowType
 │     ├─ usedPercent
@@ -40,9 +40,9 @@ ProviderSnapshot
    └─ remainingCredits
 ```
 
-`QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `statusType`, determined via preemption rules (`remainingPercent <= 20%` elevates an urgent shorter window; otherwise provider primary window). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
+`QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `presentedWindow`, determined via preemption rules (`remainingPercent` at or below the configured Low Quota Warning Threshold elevates an urgent shorter window; otherwise provider primary window, overridable per provider via `*PrimaryWindow` settings). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
-Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, and OpenCode Go return `QuotaSnapshot`; OpenRouter returns `CreditSnapshot`.
+Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, and Devin return `QuotaSnapshot`; OpenRouter and DeepSeek return `CreditSnapshot`.
 
 A number must actually be present in the response. A missing value is never treated as zero:
 
@@ -79,7 +79,7 @@ MiniMax, Kimi, Z.AI, OpenRouter, and OpenCode Go use API keys owned by this exte
 
 ```text
 Troubleshoot (first-time setup / recovery)
-Configure (while Healthy)
+Monitor → Provider (while Healthy)
   → masked key input
   → trim
   → VS Code SecretStorage
@@ -310,7 +310,7 @@ A direct Cloud Code `v1internal` quota route is **not configured as an Acquisiti
 
 ## MiniMax Token Plan
 
-Implementation: `src/providers/minimax.ts` and MiniMax credential handling in `src/extension.ts`.
+Implementation: `src/providers/minimax.ts` and MiniMax credential handling in `src/monitor-ui.ts`.
 
 ### Credential authority
 
@@ -374,7 +374,7 @@ The 5-hour and weekly windows are independent. A response containing only one va
 
 ## Kimi Code
 
-Implementation: `src/providers/kimi.ts` and Kimi credential handling in `src/extension.ts`.
+Implementation: `src/providers/kimi.ts` and Kimi credential handling in `src/monitor-ui.ts`.
 
 ### Credential authority
 
@@ -428,7 +428,7 @@ Current references:
 
 ## Z.AI / GLM Coding Plan
 
-Implementation: `src/providers/zai.ts` and Z.AI credential handling in `src/extension.ts`.
+Implementation: `src/providers/zai.ts` and Z.AI credential handling in `src/monitor-ui.ts`.
 
 ### Credential authority
 
@@ -484,7 +484,7 @@ Current references:
 
 ## OpenRouter Credit
 
-Implementation: `src/providers/openrouter.ts` and OpenRouter credential handling in `src/extension.ts`.
+Implementation: `src/providers/openrouter.ts` and OpenRouter credential handling in `src/monitor-ui.ts`.
 
 ### Credential authority
 
@@ -582,6 +582,43 @@ The usage endpoint is not part of the official public OpenCode API documentation
 Official reference:
 
 - https://opencode.ai/docs/go/
+
+---
+
+## DeepSeek
+
+### Discovery
+
+Single candidate path:
+
+```text
+DeepSeek API Key (VS Code SecretStorage or DEEPSEEK_API_KEY environment variable)
+```
+
+### Acquire
+
+```text
+GET https://api.deepseek.com/user/balance
+Authorization: Bearer <DeepSeek API Key>
+User-Agent: lean-quota-monitor
+```
+
+HTTP timeout: 15 seconds.
+
+### Parse / normalize
+
+Source fields:
+
+```text
+balance_infos[0].currency
+balance_infos[0].total_balance
+```
+
+DeepSeek returns monetary balance entries. Currency symbol formatting is handled directly by the provider (`CNY` -> `¥`, other -> `$`), and returned as `formattedRemaining` on `CreditSnapshot`.
+
+Official reference:
+
+- https://api-docs.deepseek.com/api/get-user-balance
 
 ---
 

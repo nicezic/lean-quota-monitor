@@ -85,7 +85,7 @@ A prior success does not make a currently failing Provider healthy.
 Status Bar / Hover
 → Healthy Providers only
 
-Main Quick Pick / Configure
+Monitor Quick Pick
 → Healthy Built-ins only
 → Custom Providers remain editable when errored
 
@@ -162,9 +162,15 @@ src/refresh-coordinator.ts
 src/monitor-presentation.ts
 → current-data predicates / Status Bar and detail formatting
 
+src/monitor-config.ts
+→ configuration reads and writes
+
+src/monitor-ui.ts
+→ Status Bar item / Hover / Quick Pick menus / Troubleshoot UI
+
 src/custom-provider.ts
 → Custom Provider config / script execution contract
 
 src/extension.ts
-→ runtime composition / current state / VS Code UI
+→ runtime composition / current state / refresh and command wiring
 ```

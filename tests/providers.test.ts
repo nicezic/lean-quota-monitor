@@ -46,8 +46,8 @@ test('parses MiniMax model remains to quota windows', () => {
   assert.deepEqual(
     snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5hour', 76],
       ['1week', 71],
+      ['5hour', 76],
     ],
   );
 });
@@ -76,8 +76,8 @@ test('parses Kimi weekly and 5h quota by duration', () => {
   assert.deepEqual(
     snapshot.windows.map((x) => [x.type, Math.round(x.remainingPercent)]),
     [
-      ['5hour', 31],
       ['1week', 90],
+      ['5hour', 31],
     ],
   );
 });
@@ -106,8 +106,8 @@ test('parses Codex app-server 5h and weekly windows by duration', () => {
   assert.deepEqual(
     snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5hour', 80],
       ['1week', 65],
+      ['5hour', 80],
     ],
   );
 });
@@ -211,14 +211,14 @@ test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
   assert.deepEqual(
     snapshot.windows.map((x) => [x.type, x.usedPercent, x.remainingPercent]),
     [
-      ['5hour', 25, 75],
-      ['1week', 52.5, 47.5],
       ['1month', 100, 0],
+      ['1week', 52.5, 47.5],
+      ['5hour', 25, 75],
     ],
   );
   assert.equal(
     snapshot.windows[0].resetAt?.toISOString(),
-    new Date('2026-08-24T12:00:00.000Z').toISOString(),
+    new Date('2026-09-01T00:00:00.000Z').toISOString(),
   );
   assert.equal(
     snapshot.windows[1].resetAt?.toISOString(),
@@ -226,7 +226,7 @@ test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
   );
   assert.equal(
     snapshot.windows[2].resetAt?.toISOString(),
-    new Date('2026-09-01T00:00:00.000Z').toISOString(),
+    new Date('2026-08-24T12:00:00.000Z').toISOString(),
   );
 });
 
@@ -248,9 +248,9 @@ test('parses Claude OAuth usage windows', () => {
   assert.deepEqual(
     snapshot.windows.map((x) => [x.type, x.remainingPercent]),
     [
-      ['5hour', 77],
       ['1week', 59],
+      ['5hour', 77],
     ],
   );
-  assert.equal(snapshot.windows[0].resetAt?.toISOString(), '2026-08-18T15:00:00.000Z');
+  assert.equal(snapshot.windows[0].resetAt?.toISOString(), '2026-08-24T00:00:00.000Z');
 });

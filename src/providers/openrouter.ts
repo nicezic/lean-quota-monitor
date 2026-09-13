@@ -21,13 +21,15 @@ export function parseOpenRouterCredits(body: OpenRouterCreditsResponse): CreditS
     throw new ProviderError('SCHEMA_CHANGED', 'Invalid OpenRouter credits response');
   }
 
+  const remainingCredits = totalCredits - usedCredits;
   return {
     kind: 'credit',
     providerId: 'openrouter',
     currency: 'USD',
     totalCredits,
     usedCredits,
-    remainingCredits: totalCredits - usedCredits,
+    remainingCredits,
+    formattedRemaining: `$${remainingCredits.toFixed(2)}`,
   };
 }
 

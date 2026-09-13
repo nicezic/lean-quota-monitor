@@ -1,7 +1,7 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
 import {
-  pickStatusWindow,
+  pickPresentedWindow,
   type QuotaSnapshot,
   type QuotaWindow,
   type WindowType,
@@ -76,8 +76,8 @@ export function parseKimiQuota(body: KimiUsageResponse): QuotaSnapshot {
     throw new ProviderError('SCHEMA_CHANGED', 'Unsupported Kimi quota response');
   }
 
-  const statusType = pickStatusWindow(windows, '1week');
-  return { kind: 'quota', providerId: 'kimi', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'kimi', presentedWindow, windows };
 }
 
 export async function fetchKimiQuota(apiKey: string): Promise<QuotaSnapshot> {

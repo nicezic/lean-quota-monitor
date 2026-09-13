@@ -7,11 +7,13 @@
 - **Status Bar Name** — The short label shown before a Provider value in the Status Bar.
 - **Status Output** — The opaque, single-line value returned by a Custom Provider script.
 - **Refresh** — The action that obtains a Provider's latest data and replaces its current runtime result.
-- **Acquisition Path** — One verified way to obtain data with the same Provider Snapshot semantics.
-- **Acquisition Paths** — The ordered set of Acquisition Paths for a Built-in Provider. Order expresses preference; `Fallback` is not a separate domain entity.
+- **Acquisition Path** — One verified way to obtain data with the same Provider Snapshot semantics. When multiple paths exist, order expresses preference; `Fallback` is not a separate domain entity.
 - **Provider Snapshot** — The normalized result of a successful Built-in Provider refresh at a point in time.
 - **Quota Snapshot** — A Provider Snapshot expressed as reset-window quota usage and remaining percentage.
 - **Window Type** — A canonical duration category for a Quota Snapshot window (`5hour`, `1day`, `1week`, `1month`).
+- **Primary Window** — The Window Type a Built-in Provider presents by default (`Default Quota Window On Status Bar`). Provider-defined, overridable per provider via its `*PrimaryWindow` setting (`auto` keeps the provider default, which is the longest duration).
+- **Urgent Window** — A Quota Snapshot window whose remaining percentage is at or below the configured Low Quota Warning Threshold (default: 20%).
+- **Presented Window** — The Window Type actually presented for a Quota Snapshot: the Primary Window unless an Urgent Window preempts it (lowest remaining wins; ties favor the shorter window).
 - **Credit Snapshot** — A Provider Snapshot expressed as monetary credit totals, usage, and remaining credit.
 - **Remaining Credit** — The product-facing remaining monetary balance of a Credit Snapshot.
 - **Provider State** — The current runtime outcome for a Provider: current snapshot or current error, update time, and successful acquisition path when available.

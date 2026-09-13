@@ -1,306 +1,22 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import process from 'node:process';
 import * as vscode from 'vscode';
-import { AcquisitionPathsError } from './acquisition';
 import {
   builtInProvider,
   createBuiltInRecord,
   isBuiltInProviderId as isProviderId,
   BUILT_IN_PROVIDERS as PROVIDERS,
-} from './built-in-provider';
-import {
-  type CustomProviderConfig,
-  type CustomProviderMap,
-  normalizeCustomProviders,
-  runCustomScript,
-} from './custom-provider';
-import {
-  type CustomProviderState,
-  customDetail,
-  customHasCurrentData,
-  customStatusText,
-  displayError,
-  errorMessage,
-  formatDateTime,
-  type ProviderState,
-  providerDetail,
-  providerErrorSummary,
-  providerHasCurrentData,
-  providerStatusText,
-  quickProviderDescription,
-  quickProviderDetail,
-} from './monitor-presentation';
+} from './built-in-provider.ts';
+import { type CustomProviderConfig, runCustomScript } from './custom-provider.ts';
+import { configuredCustomProviders, refreshIntervalSeconds } from './monitor-config.ts';
+import type { CustomProviderState, ProviderState } from './monitor-presentation.ts';
+import { createMonitorUI } from './monitor-ui.ts';
 import { currentPlatform } from './platform.ts';
-import {
-  acquireProviderPlan,
-  type BuiltInProviderContext,
-  type ProviderTroubleshootMethod,
-  providerTroubleshootMethods,
-} from './provider-definition.ts';
-import { isProviderError } from './provider-error.ts';
-import {
-  type MoveDirection,
-  moveProviderAmong,
-  normalizeProviderOrder,
-  removeProviderFromOrder,
-  renameProviderInOrder,
-} from './provider-order';
-import { type ConcurrentRefreshPolicy, RefreshCoordinator } from './refresh-coordinator';
-import type { ProviderId } from './types';
+import { acquireProviderPlan, type BuiltInProviderContext } from './provider-definition.ts';
+import type { MoveDirection } from './provider-order.ts';
+import { type ConcurrentRefreshPolicy, RefreshCoordinator } from './refresh-coordinator.ts';
+import type { ProviderId } from './types.ts';
 
 let refreshTimer: NodeJS.Timeout | undefined;
 let displayTimer: NodeJS.Timeout | undefined;
-
-type MonitorItem = vscode.QuickPickItem & {
-  action?: 'builtin' | 'custom' | 'refresh-all' | 'configure' | 'troubleshoot' | 'close';
-  providerId?: ProviderId;
-  customName?: string;
-};
-
-type ConfigureItem = vscode.QuickPickItem & {
-  action?:
-    | 'back'
-    | 'builtin'
-    | 'custom'
-    | 'add-custom'
-    | 'troubleshoot'
-    | 'refresh-interval'
-    | 'alignment';
-  providerKey?: string;
-};
-
-type TroubleshootItem = vscode.QuickPickItem & {
-  action?: 'back' | 'provider' | 'custom-edit';
-  providerId?: ProviderId;
-  customName?: string;
-};
-
-type ProviderTroubleshootItem = vscode.QuickPickItem & {
-  action: 'back' | 'method' | 'debug';
-  methodIndex?: number;
-};
-
-function configuredStatusBarName(id: ProviderId, fallback: string): string {
-  return (
-    vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .get<string>(`${id}StatusBarName`, fallback)
-      .trim() || fallback
-  );
-}
-
-function configuredProviderName(id: ProviderId, fallback: string): string {
-  return (
-    vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .get<string>(`${id}ProviderName`, fallback)
-      .trim() || fallback
-  );
-}
-
-function providerVisible(id: ProviderId): boolean {
-  return vscode.workspace.getConfiguration('leanQuotaMonitor').get<boolean>(`${id}Visible`, true);
-}
-
-function configuredCustomProviders(): CustomProviderMap {
-  const configured = vscode.workspace
-    .getConfiguration('leanQuotaMonitor')
-    .get<Record<string, unknown>>('customProviders', {});
-  return normalizeCustomProviders(configured);
-}
-
-function configuredProviderOrder(customProviders = configuredCustomProviders()): string[] {
-  const configured = vscode.workspace
-    .getConfiguration('leanQuotaMonitor')
-    .get<unknown>('providerOrder', []);
-  const available = [...PROVIDERS.map(({ id }) => id), ...Object.keys(customProviders)];
-  const order = Array.isArray(configured)
-    ? configured.filter((key): key is string => typeof key === 'string')
-    : [];
-  return normalizeProviderOrder(order, available);
-}
-
-function redactedErrorLines(error: unknown): string[] {
-  if (error instanceof AcquisitionPathsError) {
-    return error.failures.flatMap(({ pathId, error: pathError }) => [
-      `Path: ${pathId}`,
-      ...redactedErrorLines(pathError).map((line) => `  ${line}`),
-    ]);
-  }
-  if (isProviderError(error)) {
-    return [
-      `Error Code: ${error.code}`,
-      `Error: ${error.message}`,
-      ...(error.detail ? [`Detail: ${error.detail}`] : []),
-    ];
-  }
-  const message = errorMessage(error);
-  if (/^HTTP \d{3}$/.test(message)) return [`Error: ${message}`];
-  if (/timeout/i.test(message)) return ['Error: Request timed out'];
-  if (displayError(error) === 'Not Found') return ['Error: Not Found'];
-  return ['Error: Unclassified acquisition failure'];
-}
-
-function failureForMethod(
-  error: unknown,
-  method: ProviderTroubleshootMethod,
-  methodCount: number,
-): unknown | undefined {
-  if (method.kind === 'unsupported') return error;
-  if (error instanceof AcquisitionPathsError) {
-    return error.failures.find((failure) => failure.pathId === method.pathId)?.error;
-  }
-  return methodCount === 1 ? error : undefined;
-}
-
-function troubleshootAdvice(error: unknown): string {
-  if (isProviderError(error)) {
-    switch (error.code) {
-      case 'CLI_NOT_FOUND':
-        return 'Install the CLI or make sure its command is available on PATH.';
-      case 'AUTH_REQUIRED':
-        return 'Login information was not found. Run the login step for this method.';
-      case 'KEY_MISSING':
-        return "The API key is not configured. Add it from this provider's Configure menu.";
-      case 'KEY_INVALID':
-        return 'The configured API key was rejected. Replace it with a valid key.';
-      case 'PLAN_REQUIRED':
-        return 'This account does not appear to have the required plan.';
-      case 'QUOTA_EXHAUSTED':
-        return 'The quota is currently exhausted. Check the provider reset time or plan.';
-      case 'SCHEMA_CHANGED':
-        return 'The quota response format is no longer supported. The integration may need an update.';
-    }
-  }
-  if (displayError(error) === 'Not Found') {
-    return 'A required command or credential file was not found. Check installation, login, and PATH.';
-  }
-  if (/timeout/i.test(errorMessage(error)))
-    return 'The provider did not respond before the timeout.';
-  return 'Review the setup for this method and retry Refresh.';
-}
-
-function troubleshootLookupLines(method: ProviderTroubleshootMethod): string[] {
-  const lookup = method.lookup;
-  if (!lookup) return [];
-
-  if (lookup.kind === 'file') {
-    return ['File PATH:', `  ${lookup.path}`];
-  }
-
-  if (lookup.kind === 'secret-storage') {
-    return ['Storage: VS Code SecretStorage', `Storage Key: ${lookup.key}`];
-  }
-
-  const pathEntries = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
-  const hasExtension = path.extname(lookup.command).length > 0;
-  const pathExtensions =
-    process.platform === 'win32' && !hasExtension
-      ? (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean)
-      : [''];
-  const candidates = pathEntries.flatMap((entry) =>
-    pathExtensions.map((extension) => path.join(entry, `${lookup.command}${extension}`)),
-  );
-  const resolved = candidates.find((candidate) => fs.existsSync(candidate));
-
-  if (resolved) {
-    return ['Executable PATH:', `  ${resolved}`];
-  }
-
-  return [`Executable: ${lookup.command}`, 'Result: Not found in PATH'];
-}
-
-function commandLink(command: string, label: string, args?: unknown[]): string {
-  const query = args ? `?${encodeURIComponent(JSON.stringify(args))}` : '';
-  return `[${label}](command:${command}${query})`;
-}
-
-function tooltip(
-  states: Record<ProviderId, ProviderState>,
-  customStates: Record<string, CustomProviderState>,
-  orderOverride?: readonly string[],
-  visibilityOverride?: ReadonlyMap<string, boolean>,
-): vscode.MarkdownString {
-  const md = new vscode.MarkdownString(undefined, true);
-  md.isTrusted = {
-    enabledCommands: [
-      'leanQuotaMonitor.toggleProvider',
-      'leanQuotaMonitor.refresh',
-      'leanQuotaMonitor.refreshProvider',
-      'leanQuotaMonitor.openMonitor',
-      'leanQuotaMonitor.openTroubleshoot',
-      'leanQuotaMonitor.openSettings',
-      'leanQuotaMonitor.moveProvider',
-    ],
-  };
-
-  const customProviders = configuredCustomProviders();
-  const available = [...PROVIDERS.map(({ id }) => id), ...Object.keys(customProviders)];
-  const order = orderOverride
-    ? normalizeProviderOrder(orderOverride, available)
-    : configuredProviderOrder(customProviders);
-  const healthyOrder = order.filter((key) =>
-    isProviderId(key)
-      ? providerHasCurrentData(states[key])
-      : customHasCurrentData(customStates[key] ?? {}),
-  );
-
-  const sections: { key: string; block: string; updated: string }[] = [];
-  for (const key of healthyOrder) {
-    if (isProviderId(key)) {
-      const provider = builtInProvider(key);
-      const detail = providerDetail(
-        configuredProviderName(key, provider.providerName),
-        configuredStatusBarName(key, provider.statusBarName),
-        states[key],
-      );
-      sections.push({ key, ...detail });
-      continue;
-    }
-    const config = customProviders[key];
-    if (!config) continue;
-    const detail = customDetail(key, customStates[key] ?? {}, Date.now(), config.statusBarName);
-    sections.push({ key, ...detail });
-  }
-
-  sections.forEach((detail, index) => {
-    const visible = visibilityOverride?.has(detail.key)
-      ? (visibilityOverride.get(detail.key) ?? true)
-      : isProviderId(detail.key)
-        ? providerVisible(detail.key)
-        : (customProviders[detail.key]?.visible ?? true);
-    const visibilityStatus = visible ? 'Showing' : 'Hiding';
-    const refreshLabel = detail.updated ? `🔄 ${detail.updated}` : '🔄';
-    const controls: string[] = [
-      commandLink('leanQuotaMonitor.toggleProvider', `👀 ${visibilityStatus}`, [detail.key]),
-    ];
-    if (index > 0) {
-      controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏶', [detail.key, 'up']));
-    }
-    if (index < sections.length - 1) {
-      controls.push(commandLink('leanQuotaMonitor.moveProvider', '⏷', [detail.key, 'down']));
-    }
-    controls.push(commandLink('leanQuotaMonitor.refreshProvider', refreshLabel, [detail.key]));
-    const controlBar = controls.join(' | ');
-    if (detail.block.includes('\n')) {
-      const [line1, line2] = detail.block.split('\n');
-      md.appendMarkdown(`${line1}  \n${line2} | ${controlBar}  \n`);
-    } else {
-      md.appendMarkdown(`${detail.block} | ${controlBar}  \n`);
-    }
-    if (index < sections.length - 1) md.appendMarkdown('\n\n---\n\n');
-  });
-
-  const quickConfigLink = commandLink('leanQuotaMonitor.openMonitor', '🎚️ Quick Configure');
-  const settingsLink = commandLink('leanQuotaMonitor.openSettings', '⚙️ Settings');
-  const troubleshootLink = commandLink('leanQuotaMonitor.openTroubleshoot', '📋 Troubleshoot');
-  const refreshLink = commandLink('leanQuotaMonitor.refresh', '🔄 Refresh All');
-  if (sections.length > 0) md.appendMarkdown('\n\n---\n\n');
-  md.appendMarkdown(`${quickConfigLink} | ${settingsLink} | ${troubleshootLink} | ${refreshLink}`);
-
-  return md;
-}
 
 export function activate(context: vscode.ExtensionContext): void {
   console.info('[lean-quota-monitor] activate');
@@ -312,101 +28,23 @@ export function activate(context: vscode.ExtensionContext): void {
   const providerPlans = createBuiltInRecord((id) =>
     builtInProvider(id).snapshotPlan(providerContext),
   );
-  const troubleshootMethods = (id: ProviderId): readonly ProviderTroubleshootMethod[] =>
-    providerTroubleshootMethods(providerPlans[id]);
 
   const states = createBuiltInRecord<ProviderState>(() => ({}));
   const customStates: Record<string, CustomProviderState> = {};
   const refreshCoordinator = new RefreshCoordinator();
   let previousCustomProviders = configuredCustomProviders();
-  let activeQuickPick: vscode.QuickPick<MonitorItem> | undefined;
 
-  const configuredAlignmentSetting = (): 'right' | 'left' =>
-    vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .get<string>('statusBarAlignment', 'right') === 'left'
-      ? 'left'
-      : 'right';
+  const ui = createMonitorUI({
+    context,
+    states,
+    customStates,
+    providerPlans,
+    refreshBuiltIn,
+    refreshCustom,
+  });
 
-  const configuredAlignment = (): vscode.StatusBarAlignment =>
-    configuredAlignmentSetting() === 'left'
-      ? vscode.StatusBarAlignment.Left
-      : vscode.StatusBarAlignment.Right;
-
-  let item = vscode.window.createStatusBarItem(
-    'leanQuotaMonitor.summary',
-    configuredAlignment(),
-    10_000,
-  );
-  item.name = 'Lean Quota Monitor';
-  item.command = 'leanQuotaMonitor.openMonitor';
-  context.subscriptions.push(item);
-
-  const updateStatusBarAlignment = () => {
-    const currentText = item.text;
-    const currentTooltip = item.tooltip;
-    item.dispose();
-    item = vscode.window.createStatusBarItem(
-      'leanQuotaMonitor.summary',
-      configuredAlignment(),
-      10_000,
-    );
-    item.name = 'Lean Quota Monitor';
-    item.command = 'leanQuotaMonitor.openMonitor';
-    item.text = currentText;
-    item.tooltip = currentTooltip;
-    item.show();
-    context.subscriptions.push(item);
-  };
-
-  const refreshStatusVisibility = async () => {
-    item.hide();
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    item.show();
-  };
-
-  const render = (
-    orderOverride?: readonly string[],
-    visibilityOverride?: ReadonlyMap<string, boolean>,
-  ) => {
-    const customProviders = configuredCustomProviders();
-    const available = [...PROVIDERS.map(({ id }) => id), ...Object.keys(customProviders)];
-    const order = orderOverride
-      ? normalizeProviderOrder(orderOverride, available)
-      : configuredProviderOrder(customProviders);
-    const visibleText: string[] = [];
-
-    for (const key of order) {
-      if (isProviderId(key)) {
-        const visible = visibilityOverride?.get(key) ?? providerVisible(key);
-        if (!visible || !providerHasCurrentData(states[key])) continue;
-        const provider = builtInProvider(key);
-        visibleText.push(
-          providerStatusText(configuredStatusBarName(key, provider.statusBarName), states[key]),
-        );
-        continue;
-      }
-      const config = customProviders[key];
-      const state = customStates[key] ?? {};
-      const visible = visibilityOverride?.get(key) ?? config?.visible ?? true;
-      if (!config || !visible || !customHasCurrentData(state)) continue;
-      visibleText.push(customStatusText(config, state));
-    }
-
-    item.text = visibleText.length > 0 ? visibleText.join(' │ ') : 'Quota';
-    item.tooltip = tooltip(states, customStates, order, visibilityOverride);
-
-    if (activeQuickPick) {
-      activeQuickPick.items = buildMonitorItems(order, visibilityOverride);
-    }
-  };
-
-  render();
-  item.show();
-  console.info(`[lean-quota-monitor] statusbar shown: ${item.text}`);
-
-  const refreshBuiltIn = (id: ProviderId, concurrentPolicy: ConcurrentRefreshPolicy = 'join') =>
-    refreshCoordinator.run(
+  function refreshBuiltIn(id: ProviderId, concurrentPolicy: ConcurrentRefreshPolicy = 'join') {
+    return refreshCoordinator.run(
       `builtin:${id}`,
       async () => {
         try {
@@ -419,18 +57,19 @@ export function activate(context: vscode.ExtensionContext): void {
         } catch (error) {
           states[id] = { error, updatedAt: new Date() };
         } finally {
-          render();
+          ui.render();
         }
       },
       concurrentPolicy,
     );
+  }
 
-  const refreshCustom = (
+  function refreshCustom(
     name: string,
     config: CustomProviderConfig,
     concurrentPolicy: ConcurrentRefreshPolicy = 'join',
-  ) =>
-    refreshCoordinator.run(
+  ) {
+    return refreshCoordinator.run(
       `custom:${name}`,
       async () => {
         try {
@@ -439,13 +78,14 @@ export function activate(context: vscode.ExtensionContext): void {
         } catch (error) {
           customStates[name] = { error, updatedAt: new Date() };
         } finally {
-          render();
+          ui.render();
         }
       },
       concurrentPolicy,
     );
+  }
 
-  const refreshConfiguredCustoms = async () => {
+  async function refreshConfiguredCustoms() {
     const current = configuredCustomProviders();
     const previous = previousCustomProviders;
     previousCustomProviders = current;
@@ -454,946 +94,17 @@ export function activate(context: vscode.ExtensionContext): void {
         refreshCustom(name, config, previous[name]?.script === config.script ? 'join' : 'rerun'),
       ),
     );
-  };
+  }
 
-  const refresh = async () => {
+  async function refresh() {
     await Promise.all([
       ...PROVIDERS.map(({ id }) => refreshBuiltIn(id)),
       refreshConfiguredCustoms(),
     ]);
-    console.info(`[lean-quota-monitor] refresh complete: ${item.text}`);
-  };
-
-  const buildMonitorItems = (
-    orderOverride?: readonly string[],
-    visibilityOverride?: ReadonlyMap<string, boolean>,
-  ): MonitorItem[] => {
-    const items: MonitorItem[] = [];
-    const customProviders = configuredCustomProviders();
-    const available = [...PROVIDERS.map(({ id }) => id), ...Object.keys(customProviders)];
-    const order = orderOverride
-      ? normalizeProviderOrder(orderOverride, available)
-      : configuredProviderOrder(customProviders);
-
-    for (const key of order) {
-      if (isProviderId(key)) {
-        const state = states[key];
-        if (!providerHasCurrentData(state)) continue;
-        const provider = builtInProvider(key);
-        const visible = visibilityOverride?.get(key) ?? providerVisible(key);
-        const visibilityStatus = visible ? 'Showing' : 'Hiding';
-        items.push({
-          label: configuredProviderName(key, provider.providerName),
-          description: `${quickProviderDescription(state)} · ${visibilityStatus}`,
-          detail: quickProviderDetail(state),
-          action: 'builtin',
-          providerId: key,
-          buttons: [{ iconPath: new vscode.ThemeIcon('refresh'), tooltip: 'Refresh now' }],
-        });
-        continue;
-      }
-
-      const config = customProviders[key];
-      const state = customStates[key] ?? {};
-      if (!config) continue;
-      const visible = visibilityOverride?.get(key) ?? config.visible;
-      const visibilityStatus = visible ? 'Showing' : 'Hiding';
-      const outputText = state.output ?? (state.error ? displayError(state.error) : 'Loading…');
-      items.push({
-        label: key,
-        description: `${outputText} · ${visibilityStatus}`,
-        detail: `Status Bar: ${config.statusBarName} · ${config.script}`,
-        action: 'custom',
-        customName: key,
-        buttons: [{ iconPath: new vscode.ThemeIcon('refresh'), tooltip: 'Refresh now' }],
-      });
-    }
-
-    items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
-    items.push({ label: '$(refresh) Refresh All', action: 'refresh-all', alwaysShow: true });
-    items.push({ label: '$(gear) Configure', action: 'configure', alwaysShow: true });
-    items.push({
-      label: '$(tools) Troubleshoot Providers',
-      action: 'troubleshoot',
-      alwaysShow: true,
-    });
-    items.push({ label: '$(close) Close', action: 'close', alwaysShow: true });
-    return items;
-  };
-
-  const updateCustomProviders = async (providers: CustomProviderMap) => {
-    await vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .update('customProviders', providers, vscode.ConfigurationTarget.Global);
-  };
-
-  const updateProviderOrder = async (order: readonly string[]) => {
-    await vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .update('providerOrder', [...order], vscode.ConfigurationTarget.Global);
-  };
-
-  const moveProviderOrder = async (key: string, direction: MoveDirection) => {
-    const customProviders = configuredCustomProviders();
-    const order = configuredProviderOrder(customProviders);
-    const movable = order.filter((entry) =>
-      isProviderId(entry)
-        ? providerHasCurrentData(states[entry])
-        : customHasCurrentData(customStates[entry] ?? {}),
-    );
-    const nextOrder = moveProviderAmong(order, key, direction, movable);
-    render(nextOrder);
-    await updateProviderOrder(nextOrder);
-    render(nextOrder);
-    await refreshStatusVisibility();
-  };
-
-  const toggleProviderVisibility = async (key: string) => {
-    if (isProviderId(key)) {
-      const builtIn = builtInProvider(key);
-      const config = vscode.workspace.getConfiguration('leanQuotaMonitor');
-      const setting = `${builtIn.id}Visible`;
-      const nextVisible = !config.get<boolean>(setting, true);
-      const override = new Map<string, boolean>([[key, nextVisible]]);
-      render(undefined, override);
-      await config.update(setting, nextVisible, vscode.ConfigurationTarget.Global);
-      render(undefined, override);
-      await refreshStatusVisibility();
-      return;
-    }
-
-    const current = configuredCustomProviders();
-    const custom = current[key];
-    if (!custom) return;
-    const nextVisible = !custom.visible;
-    const override = new Map<string, boolean>([[key, nextVisible]]);
-    render(undefined, override);
-    await updateCustomProviders({
-      ...current,
-      [key]: { ...custom, visible: nextVisible },
-    });
-    render(undefined, override);
-    await refreshStatusVisibility();
-  };
-
-  const showInputWithBack = (options: {
-    title: string;
-    prompt?: string;
-    placeholder?: string;
-    value?: string;
-    validate?: (value: string) => string | undefined;
-  }): Promise<{ action: 'accept'; value: string } | { action: 'back' } | { action: 'cancel' }> =>
-    new Promise((resolve) => {
-      const input = vscode.window.createInputBox();
-      input.title = options.title;
-      input.prompt = options.prompt;
-      input.placeholder = options.placeholder;
-      input.value = options.value ?? '';
-      input.ignoreFocusOut = true;
-      input.buttons = [vscode.QuickInputButtons.Back];
-
-      let settled = false;
-      const finish = (
-        result: { action: 'accept'; value: string } | { action: 'back' } | { action: 'cancel' },
-      ) => {
-        if (settled) return;
-        settled = true;
-        input.hide();
-        input.dispose();
-        resolve(result);
-      };
-
-      input.onDidChangeValue(() => {
-        input.validationMessage = undefined;
-      });
-      input.onDidAccept(() => {
-        const value = input.value.trim();
-        const validationMessage = options.validate?.(value);
-        if (validationMessage) {
-          input.validationMessage = validationMessage;
-          return;
-        }
-        finish({ action: 'accept', value });
-      });
-      input.onDidTriggerButton((button) => {
-        if (button === vscode.QuickInputButtons.Back) finish({ action: 'back' });
-      });
-      input.onDidHide(() => finish({ action: 'cancel' }));
-      input.show();
-    });
-
-  const addCustomProvider = async () => {
-    const current = configuredCustomProviders();
-    let step: 'name' | 'statusBarName' | 'script' = 'name';
-    let name = '';
-    let statusBarName = '';
-    let script = '';
-
-    for (;;) {
-      if (step === 'name') {
-        const result = await showInputWithBack({
-          title: 'Add Custom Provider · Provider Name',
-          prompt: 'Name shown in Hover and Quick Pick.',
-          placeholder: 'custom_provider_name',
-          value: name,
-          validate: (value) => {
-            if (!value) return 'Provider Name is required.';
-            if (isProviderId(value) || Object.hasOwn(current, value)) {
-              return `Provider Name "${value}" already exists.`;
-            }
-            return undefined;
-          },
-        });
-        if (result.action === 'cancel' || result.action === 'back') return;
-        name = result.value;
-        step = 'statusBarName';
-        continue;
-      }
-
-      if (step === 'statusBarName') {
-        const result = await showInputWithBack({
-          title: 'Add Custom Provider · Status Bar Name',
-          prompt: 'Short name shown before Status Output in the Status Bar.',
-          placeholder: 'my',
-          value: statusBarName,
-          validate: (value) => (value ? undefined : 'Status Bar Name is required.'),
-        });
-        if (result.action === 'cancel') return;
-        if (result.action === 'back') {
-          step = 'name';
-          continue;
-        }
-        statusBarName = result.value;
-        step = 'script';
-        continue;
-      }
-
-      const result = await showInputWithBack({
-        title: 'Add Custom Provider · Script Path',
-        prompt: 'Executable path only. stdout becomes the single-line Status Output.',
-        placeholder: '~/.local/bin/my-provider-credit',
-        value: script,
-        validate: (value) => (value ? undefined : 'Script Path is required.'),
-      });
-      if (result.action === 'cancel') return;
-      if (result.action === 'back') {
-        step = 'statusBarName';
-        continue;
-      }
-      script = result.value;
-      break;
-    }
-
-    const custom = { statusBarName, script, visible: true };
-    const nextProviders = { ...current, [name]: custom };
-    const nextOrder = configuredProviderOrder(nextProviders);
-    customStates[name] = {};
-    await updateCustomProviders(nextProviders);
-    await updateProviderOrder(nextOrder);
-    render(nextOrder);
-  };
-
-  const openCustomProvider = async (name: string) => {
-    const current = configuredCustomProviders();
-    const custom = current[name];
-    if (!custom) return;
-
-    const choice = await vscode.window.showQuickPick(
-      [
-        { label: '$(arrow-left) Back', action: 'back' as const },
-        {
-          label: custom.visible
-            ? '$(eye-closed) Hide from Status Bar'
-            : '$(eye) Show in Status Bar',
-          description: custom.visible ? 'Showing' : 'Hiding',
-          action: 'toggle' as const,
-        },
-        { label: '$(edit) Change Provider Name', action: 'rename' as const },
-        { label: '$(symbol-key) Change Status Bar Name', action: 'label' as const },
-        { label: '$(file-code) Change Script Path', action: 'path' as const },
-        { label: '$(trash) Delete Custom Provider', action: 'delete' as const },
-      ],
-      {
-        title: `Lean Quota Monitor · ${name}`,
-        placeHolder: customStates[name]?.error
-          ? `Error: ${displayError(customStates[name].error)}`
-          : 'Custom Provider actions',
-        ignoreFocusOut: true,
-      },
-    );
-    if (!choice || choice.action === 'back') return;
-
-    if (choice.action === 'toggle') {
-      await toggleProviderVisibility(name);
-      return;
-    }
-
-    if (choice.action === 'rename') {
-      const nextName = (
-        await vscode.window.showInputBox({
-          title: `Provider Name · ${name}`,
-          value: name,
-          prompt: 'Name shown in Hover and Quick Pick.',
-          placeHolder: 'custom_provider_name',
-          ignoreFocusOut: true,
-        })
-      )?.trim();
-      if (!nextName || nextName === name) return;
-      if (isProviderId(nextName) || Object.hasOwn(current, nextName)) {
-        vscode.window.showErrorMessage(`Provider Name "${nextName}" already exists.`);
-        return;
-      }
-
-      const renamed: CustomProviderMap = {};
-      for (const [entryName, entryConfig] of Object.entries(current)) {
-        renamed[entryName === name ? nextName : entryName] = entryConfig;
-      }
-      const nextOrder = renameProviderInOrder(configuredProviderOrder(current), name, nextName);
-      customStates[nextName] = customStates[name] ?? {};
-      delete customStates[name];
-      await updateCustomProviders(renamed);
-      await updateProviderOrder(nextOrder);
-      render(nextOrder);
-      return;
-    }
-
-    if (choice.action === 'label') {
-      const nextStatusBarName = (
-        await vscode.window.showInputBox({
-          title: `Status Bar Name · ${name}`,
-          value: custom.statusBarName,
-          prompt: 'Label shown in Status Bar.',
-          placeHolder: 'my',
-          ignoreFocusOut: true,
-        })
-      )?.trim();
-      if (!nextStatusBarName || nextStatusBarName === custom.statusBarName) return;
-      await updateCustomProviders({
-        ...current,
-        [name]: { ...custom, statusBarName: nextStatusBarName },
-      });
-      render();
-      return;
-    }
-
-    if (choice.action === 'path') {
-      const nextPath = (
-        await vscode.window.showInputBox({
-          title: `Script Path · ${name}`,
-          value: custom.script,
-          prompt: 'Executable path only; no shell command or arguments.',
-          placeHolder: '~/.local/bin/my-provider-credit',
-          ignoreFocusOut: true,
-        })
-      )?.trim();
-      if (!nextPath || nextPath === custom.script) return;
-      const nextCustom = { ...custom, script: nextPath };
-      customStates[name] = {};
-      await updateCustomProviders({ ...current, [name]: nextCustom });
-      render();
-      return;
-    }
-
-    const confirmed = await vscode.window.showWarningMessage(
-      `Delete Custom Provider "${name}"?`,
-      { modal: true },
-      'Delete',
-    );
-    if (confirmed !== 'Delete') return;
-    const next = { ...current };
-    delete next[name];
-    delete customStates[name];
-    const nextOrder = removeProviderFromOrder(configuredProviderOrder(current), name);
-    await updateCustomProviders(next);
-    await updateProviderOrder(nextOrder);
-    render(nextOrder);
-  };
-
-  const openBuiltInSettings = async (id: ProviderId) => {
-    await vscode.commands.executeCommand(
-      'workbench.action.openSettings',
-      `@ext:nicezic.lean-quota-monitor leanQuotaMonitor.${id}`,
-    );
-  };
-
-  const setBuiltInSecret = async (id: ProviderId): Promise<boolean> => {
-    const secret = builtInProvider(id).secret;
-    if (!secret) return false;
-    const displayName = configuredProviderName(id, builtInProvider(id).providerName);
-
-    const value = await vscode.window.showInputBox({
-      title: secret.title,
-      prompt: secret.inputPrompt,
-      placeHolder: secret.inputPlaceholder,
-      password: true,
-      ignoreFocusOut: true,
-    });
-    const key = value?.trim();
-    if (!key) return false;
-    await context.secrets.store(secret.storageKey, key);
-    await refreshBuiltIn(id, 'rerun');
-    if (providerHasCurrentData(states[id])) {
-      void vscode.window.showInformationMessage(`${displayName}: key stored · refresh OK`);
-      return true;
-    }
-    void vscode.window.showWarningMessage(
-      `${displayName}: key stored · refresh failed: ${providerErrorSummary(
-        states[id].error ?? new Error('Unknown error'),
-      )}`,
-    );
-    return true;
-  };
-
-  const updateBuiltInTextSetting = async (
-    id: ProviderId,
-    field: 'ProviderName' | 'StatusBarName',
-    currentValue: string,
-    title: string,
-    defaultValue?: string,
-  ): Promise<void> => {
-    const defaultSuffix = defaultValue ? ` (default: ${defaultValue})` : '';
-    const value = await vscode.window.showInputBox({
-      title,
-      value: currentValue,
-      prompt:
-        field === 'ProviderName'
-          ? `Name shown in Hover and Quick Pick${defaultSuffix}.`
-          : `Label shown in Status Bar${defaultSuffix}.`,
-      placeHolder: defaultValue ?? currentValue,
-      ignoreFocusOut: true,
-    });
-    const next = value?.trim();
-    if (!next || next === currentValue) return;
-    await vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .update(`${id}${field}`, next, vscode.ConfigurationTarget.Global);
-    render();
-  };
-
-  const showRedactedDebugInfo = async (id: ProviderId): Promise<void> => {
-    const state = states[id];
-    if (!state.error) return;
-    const provider = builtInProvider(id);
-    const displayName = configuredProviderName(id, provider.providerName);
-    const detail = [
-      `Provider: ${displayName}`,
-      'Status: Error',
-      `Updated: ${formatDateTime(state.updatedAt)}`,
-      ...redactedErrorLines(state.error),
-    ].join('\n');
-    await vscode.window.showInformationMessage('Lean Quota Monitor · Redacted Debug Info', {
-      modal: true,
-      detail,
-    });
-  };
-
-  const openBuiltInProvider = async (id: ProviderId): Promise<void> => {
-    const provider = builtInProvider(id);
-
-    type BuiltInAction =
-      | 'back'
-      | 'toggle'
-      | 'name'
-      | 'label'
-      | 'secret'
-      | 'settings'
-      | 'troubleshoot';
-
-    for (;;) {
-      const visible = providerVisible(id);
-      const items: (vscode.QuickPickItem & { action: BuiltInAction })[] = [
-        { label: '$(arrow-left) Back', action: 'back', alwaysShow: true },
-        {
-          label: visible ? '$(eye-closed) Hide from Status Bar' : '$(eye) Show in Status Bar',
-          description: visible ? 'Showing' : 'Hiding',
-          action: 'toggle',
-        },
-        {
-          label: '$(edit) Change Provider Name',
-          description: configuredProviderName(id, provider.providerName),
-          action: 'name',
-        },
-        {
-          label: '$(symbol-key) Change Status Bar Name',
-          description: configuredStatusBarName(id, provider.statusBarName),
-          action: 'label',
-        },
-      ];
-
-      const secret = provider.secret;
-      if (secret) {
-        items.push({
-          label: `$(key) ${secret.actionLabel}`,
-          description: secret.menuDescription,
-          action: 'secret',
-        });
-      }
-      if (states[id].error) {
-        items.push({
-          label: '$(tools) Troubleshoot',
-          description: providerErrorSummary(states[id].error),
-          action: 'troubleshoot',
-        });
-      }
-      items.push({ label: '$(settings-gear) Open Provider Settings', action: 'settings' });
-
-      const selected = await vscode.window.showQuickPick(items, {
-        title: `Lean Quota Monitor · ${configuredProviderName(id, provider.providerName)}`,
-        placeHolder: states[id].error
-          ? `Error: ${providerErrorSummary(states[id].error)}`
-          : 'Provider actions',
-        ignoreFocusOut: true,
-      });
-      if (!selected || selected.action === 'back') return;
-
-      if (selected.action === 'toggle') {
-        await toggleProviderVisibility(id);
-        continue;
-      }
-      if (selected.action === 'name') {
-        await updateBuiltInTextSetting(
-          id,
-          'ProviderName',
-          configuredProviderName(id, provider.providerName),
-          `Provider Name · ${configuredProviderName(id, provider.providerName)}`,
-          provider.providerName,
-        );
-        continue;
-      }
-      if (selected.action === 'label') {
-        await updateBuiltInTextSetting(
-          id,
-          'StatusBarName',
-          configuredStatusBarName(id, provider.statusBarName),
-          `Status Bar Name · ${configuredProviderName(id, provider.providerName)}`,
-          provider.statusBarName,
-        );
-        continue;
-      }
-      if (selected.action === 'secret') {
-        await setBuiltInSecret(id);
-        continue;
-      }
-      if (selected.action === 'settings') {
-        await openBuiltInSettings(id);
-        return;
-      }
-      await openBuiltInTroubleshoot(id);
-    }
-  };
-
-  const buildConfigureItems = (): ConfigureItem[] => {
-    const items: ConfigureItem[] = [
-      { label: '$(arrow-left) Back', action: 'back', alwaysShow: true },
-      { label: 'Built-in', kind: vscode.QuickPickItemKind.Separator },
-    ];
-
-    for (const { id, providerName, statusBarName } of PROVIDERS) {
-      if (!providerHasCurrentData(states[id])) continue;
-      const visible = providerVisible(id);
-      items.push({
-        label: `${visible ? '$(check)' : '$(circle-slash)'} ${configuredProviderName(id, providerName)}`,
-        description: `Status Bar: ${configuredStatusBarName(id, statusBarName)} · ${visible ? 'Showing' : 'Hiding'}`,
-        action: 'builtin',
-        providerKey: id,
-      });
-    }
-
-    const customProviders = Object.entries(configuredCustomProviders());
-    items.push({ label: 'Custom', kind: vscode.QuickPickItemKind.Separator });
-    for (const [name, config] of customProviders) {
-      const state = customStates[name] ?? {};
-      const statusPrefix = state.error
-        ? `Error: ${displayError(state.error)}`
-        : `Status Bar: ${config.statusBarName}`;
-      items.push({
-        label: `${config.visible ? '$(check)' : '$(circle-slash)'} ${name}`,
-        description: `${statusPrefix} · ${config.visible ? 'Showing' : 'Hiding'}`,
-        action: 'custom',
-        providerKey: name,
-      });
-    }
-    items.push({ label: '$(add) Add Custom Provider', action: 'add-custom', alwaysShow: true });
-
-    items.push({ label: '', kind: vscode.QuickPickItemKind.Separator });
-    const currentInterval = refreshIntervalSeconds();
-    items.push({
-      label: '$(watch) Refresh Interval',
-      description: `${currentInterval}s (${formatIntervalLabel(currentInterval)})`,
-      action: 'refresh-interval',
-      alwaysShow: true,
-    });
-    const currentAlignment = configuredAlignmentSetting();
-    items.push({
-      label: '$(layout-statusbar) Status Bar Alignment',
-      description: `${currentAlignment === 'left' ? 'Left' : 'Right'} (restart required)`,
-      action: 'alignment',
-      alwaysShow: true,
-    });
-    items.push({
-      label: '$(tools) Troubleshoot Providers',
-      action: 'troubleshoot',
-      alwaysShow: true,
-    });
-    return items;
-  };
-
-  const refreshIntervalSeconds = () =>
-    vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .get<number>('refreshIntervalSeconds', 180);
-
-  const formatIntervalLabel = (seconds: number): string => {
-    if (seconds < 60) return `${seconds}s`;
-    if (seconds % 3600 === 0) return `${seconds / 3600}h`;
-    if (seconds % 60 === 0) return `${seconds / 60}m`;
-    return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  };
-
-  const updateRefreshIntervalSeconds = async (seconds: number) => {
-    await vscode.workspace
-      .getConfiguration('leanQuotaMonitor')
-      .update('refreshIntervalSeconds', seconds, vscode.ConfigurationTarget.Global);
-  };
-
-  async function openRefreshIntervalPicker(): Promise<void> {
-    const presets = [30, 60, 120, 180, 300, 600, 1800, 3600];
-    const validSeconds = (input: string): number | undefined => {
-      const parsed = Number(input);
-      return Number.isInteger(parsed) && parsed >= 30 ? parsed : undefined;
-    };
-    const current = refreshIntervalSeconds();
-    const items: (vscode.QuickPickItem & { seconds?: number; custom?: boolean })[] = [
-      { label: '$(arrow-left) Back', alwaysShow: true },
-      ...presets.map((seconds) => ({
-        label: formatIntervalLabel(seconds),
-        description: `${seconds} seconds${seconds === current ? ' · current' : ''}`,
-        seconds,
-      })),
-      { label: '$(edit) Custom…', custom: true, alwaysShow: true },
-    ];
-
-    for (;;) {
-      const selected = await vscode.window.showQuickPick(items, {
-        title: 'Lean Quota Monitor · Refresh Interval',
-        placeHolder: 'How often all Providers refresh automatically.',
-        ignoreFocusOut: true,
-      });
-      if (!selected) return;
-      if (selected.seconds !== undefined) {
-        if (selected.seconds !== current) await updateRefreshIntervalSeconds(selected.seconds);
-        return;
-      }
-      if (!selected.custom) return;
-
-      const result = await showInputWithBack({
-        title: 'Refresh Interval · seconds',
-        prompt: 'Whole number of at least 30 seconds (default: 180s).',
-        placeholder: '180',
-        validate: (input) => {
-          if (validSeconds(input) === undefined) {
-            return 'Enter a whole number of at least 30 seconds.';
-          }
-          return undefined;
-        },
-      });
-      if (result.action !== 'accept') return;
-      const parsed = validSeconds(result.value);
-      if (parsed !== undefined) {
-        if (parsed !== current) await updateRefreshIntervalSeconds(parsed);
-        return;
-      }
-    }
+    console.info(`[lean-quota-monitor] refresh complete: ${ui.statusText()}`);
   }
 
-  async function openBuiltInTroubleshoot(id: ProviderId): Promise<'fixed' | undefined> {
-    const provider = builtInProvider(id);
-    const plan = providerPlans[id];
-
-    for (;;) {
-      const state = states[id];
-      const methods = troubleshootMethods(id);
-      const items: ProviderTroubleshootItem[] = [
-        { label: '$(arrow-left) Back', action: 'back', alwaysShow: true },
-        ...methods.map((candidate, index) => {
-          const failure = state.error
-            ? failureForMethod(state.error, candidate, methods.length)
-            : undefined;
-          return {
-            label: `${failure ? '$(error)' : '$(check)'} ${index + 1}. ${candidate.title}`,
-            description: failure
-              ? isProviderError(failure)
-                ? failure.code
-                : displayError(failure)
-              : 'No current failure',
-            detail: candidate.setup,
-            action: 'method' as const,
-            methodIndex: index,
-          };
-        }),
-        ...(state.error
-          ? [
-              {
-                label: '$(bug) Redacted Debug Info',
-                description:
-                  plan.kind === 'available'
-                    ? 'All failed Acquisition Paths · no raw secrets or provider payloads'
-                    : 'Unsupported Provider · no raw secrets or provider payloads',
-                action: 'debug' as const,
-              },
-            ]
-          : []),
-      ];
-
-      const selected = await vscode.window.showQuickPick<ProviderTroubleshootItem>(items, {
-        title: `Lean Quota Monitor · Troubleshoot · ${configuredProviderName(id, provider.providerName)}`,
-        placeHolder:
-          plan.kind === 'available'
-            ? 'Set up any one method. Lean Quota Monitor uses the first one that works.'
-            : 'This Provider is not supported on the current platform.',
-        ignoreFocusOut: true,
-      });
-      if (!selected || selected.action === 'back') return;
-      if (selected.action === 'debug') {
-        await showRedactedDebugInfo(id);
-        continue;
-      }
-
-      const method = selected.methodIndex === undefined ? undefined : methods[selected.methodIndex];
-      if (!method) continue;
-      const failure = state.error
-        ? failureForMethod(state.error, method, methods.length)
-        : undefined;
-      const detail = failure
-        ? [
-            `Method: ${method.title}`,
-            `Setup: ${method.setup}`,
-            '',
-            ...troubleshootLookupLines(method),
-            '',
-            ...redactedErrorLines(failure),
-            `What to do: ${troubleshootAdvice(failure)}`,
-          ].join('\n')
-        : [
-            `Method: ${method.title}`,
-            `Setup: ${method.setup}`,
-            '',
-            ...troubleshootLookupLines(method),
-            '',
-            'No current failure was recorded for this method.',
-            'Run Refresh to check it again.',
-          ].join('\n');
-      if (method.lookup?.kind === 'secret-storage') {
-        const action = builtInProvider(id).secret?.actionLabel ?? 'Set / Replace API Key';
-        const selectedAction = await vscode.window.showInformationMessage(
-          `Troubleshoot · ${method.title}`,
-          { modal: true, detail },
-          action,
-        );
-        if (selectedAction === action) {
-          const changed = await setBuiltInSecret(id);
-          if (changed && providerHasCurrentData(states[id])) return 'fixed';
-        }
-        continue;
-      }
-
-      await vscode.window.showInformationMessage(`Troubleshoot · ${method.title}`, {
-        modal: true,
-        detail,
-      });
-    }
-  }
-
-  async function openTroubleshoot(): Promise<void> {
-    for (;;) {
-      const missing: TroubleshootItem[] = [];
-
-      for (const { id, providerName } of PROVIDERS) {
-        const state = states[id];
-        if (!state.error) continue;
-        const methods = troubleshootMethods(id);
-        missing.push({
-          label: configuredProviderName(id, providerName),
-          description:
-            methods.length > 1
-              ? providerErrorSummary(state.error)
-              : `Error: ${displayError(state.error)}`,
-          detail: `Select to inspect ${methods.length === 1 ? 'this method' : 'each method'} and its current error`,
-          action: 'provider',
-          providerId: id,
-        });
-      }
-
-      for (const [name, config] of Object.entries(configuredCustomProviders())) {
-        const state = customStates[name] ?? {};
-        if (!state.error) continue;
-        missing.push({
-          label: name,
-          description: `Custom Provider · Error: ${displayError(state.error)}`,
-          detail: `Script Path: ${config.script}`,
-          action: 'custom-edit',
-          customName: name,
-        });
-      }
-
-      const selected = await vscode.window.showQuickPick<TroubleshootItem>(
-        [
-          { label: '$(arrow-left) Back', action: 'back', alwaysShow: true },
-          ...(missing.length > 0
-            ? missing
-            : [{ label: 'No provider errors', kind: vscode.QuickPickItemKind.Separator }]),
-        ],
-        {
-          title: 'Lean Quota Monitor · Troubleshoot',
-          placeHolder: 'Choose a Provider to inspect its setup methods and current errors.',
-          ignoreFocusOut: true,
-        },
-      );
-      if (!selected || selected.action === 'back') return;
-      if (!selected.action) return;
-      if (selected.action === 'provider' && selected.providerId) {
-        const fixed = await openBuiltInTroubleshoot(selected.providerId);
-        if (fixed === 'fixed') {
-          const remaining =
-            PROVIDERS.some(({ id }) => states[id].error) ||
-            Object.keys(configuredCustomProviders()).some((name) => customStates[name]?.error);
-          if (!remaining) return;
-        }
-        continue;
-      }
-      if (selected.action === 'custom-edit' && selected.customName) {
-        await openCustomProvider(selected.customName);
-      }
-    }
-  }
-
-  async function openConfigure(): Promise<void> {
-    for (;;) {
-      const selected = await vscode.window.showQuickPick(buildConfigureItems(), {
-        title: 'Lean Quota Monitor · Configure',
-        placeHolder: 'Choose a Provider or configuration action',
-        ignoreFocusOut: true,
-      });
-      if (!selected) return;
-      if (selected.action === 'back') {
-        openMonitor();
-        return;
-      }
-      if (
-        selected.action === 'builtin' &&
-        selected.providerKey &&
-        isProviderId(selected.providerKey)
-      ) {
-        await openBuiltInProvider(selected.providerKey);
-        continue;
-      }
-      if (
-        selected.action === 'custom' &&
-        selected.providerKey &&
-        !isProviderId(selected.providerKey)
-      ) {
-        await openCustomProvider(selected.providerKey);
-        continue;
-      }
-      if (selected.action === 'add-custom') {
-        await addCustomProvider();
-        continue;
-      }
-      if (selected.action === 'refresh-interval') {
-        await openRefreshIntervalPicker();
-        continue;
-      }
-      if (selected.action === 'alignment') {
-        const next = configuredAlignmentSetting() === 'left' ? 'right' : 'left';
-        await vscode.workspace
-          .getConfiguration('leanQuotaMonitor')
-          .update('statusBarAlignment', next, vscode.ConfigurationTarget.Global);
-        continue;
-      }
-      if (selected.action === 'troubleshoot') {
-        await openTroubleshoot();
-      }
-    }
-  }
-
-  function openMonitor(): void {
-    if (activeQuickPick) {
-      activeQuickPick.show();
-      return;
-    }
-
-    const qp = vscode.window.createQuickPick<MonitorItem>();
-    activeQuickPick = qp;
-    qp.title = 'Lean Quota Monitor';
-    qp.placeholder = 'Choose a Provider or action';
-    qp.matchOnDescription = true;
-    qp.matchOnDetail = true;
-    qp.items = buildMonitorItems();
-
-    let disposed = false;
-    const refreshQuickPickItems = () => {
-      if (!disposed) qp.items = buildMonitorItems();
-    };
-    const hideForNavigation = () => {
-      if (activeQuickPick === qp) activeQuickPick = undefined;
-      qp.hide();
-    };
-
-    qp.onDidTriggerItemButton(async (event) => {
-      const selected = event.item;
-      if (selected.action === 'builtin' && selected.providerId) {
-        await refreshBuiltIn(selected.providerId);
-      } else if (selected.action === 'custom' && selected.customName) {
-        const custom = configuredCustomProviders()[selected.customName];
-        if (custom) await refreshCustom(selected.customName, custom);
-      }
-      refreshQuickPickItems();
-    });
-
-    qp.onDidAccept(async () => {
-      const selected = qp.selectedItems[0];
-      if (!selected) return;
-
-      if (selected.action === 'refresh-all') {
-        qp.selectedItems = [];
-        await refresh();
-        refreshQuickPickItems();
-        return;
-      }
-      if (selected.action === 'close') {
-        qp.hide();
-        return;
-      }
-      hideForNavigation();
-      if (selected.action === 'configure') {
-        await openConfigure();
-        return;
-      }
-      if (selected.action === 'troubleshoot') {
-        await openTroubleshoot();
-        openMonitor();
-        return;
-      }
-      if (selected.action === 'builtin' && selected.providerId) {
-        await openBuiltInProvider(selected.providerId);
-        openMonitor();
-        return;
-      }
-      if (selected.action === 'custom' && selected.customName) {
-        await openCustomProvider(selected.customName);
-        openMonitor();
-      }
-    });
-
-    qp.onDidHide(() => {
-      disposed = true;
-      if (activeQuickPick === qp) activeQuickPick = undefined;
-      qp.dispose();
-    });
-    qp.show();
-  }
-
-  const scheduleNextRefresh = () => {
+  function scheduleNextRefresh() {
     if (refreshTimer) clearTimeout(refreshTimer);
     const baseSeconds = Math.max(30, refreshIntervalSeconds());
     const jitter = Math.floor(Math.random() * 16);
@@ -1402,13 +113,17 @@ export function activate(context: vscode.ExtensionContext): void {
       await refresh();
       scheduleNextRefresh();
     }, delayMs);
-  };
+  }
+
+  ui.render();
+  ui.show();
+  console.info(`[lean-quota-monitor] statusbar shown: ${ui.statusText()}`);
 
   context.subscriptions.push(
-    vscode.commands.registerCommand('leanQuotaMonitor.openMonitor', openMonitor),
+    vscode.commands.registerCommand('leanQuotaMonitor.openMonitor', ui.openMonitor),
     vscode.commands.registerCommand(
       'leanQuotaMonitor.openTroubleshoot',
-      () => void openTroubleshoot(),
+      () => void ui.openTroubleshoot(),
     ),
     vscode.commands.registerCommand('leanQuotaMonitor.refresh', refresh),
     vscode.commands.registerCommand('leanQuotaMonitor.refreshProvider', async (key: string) => {
@@ -1418,16 +133,14 @@ export function activate(context: vscode.ExtensionContext): void {
         const custom = configuredCustomProviders()[key];
         if (custom) await refreshCustom(key, custom, 'rerun');
       }
-      render();
-      item.hide();
-      await new Promise((resolve) => setTimeout(resolve, 0));
-      item.show();
+      ui.render();
+      await ui.refreshStatusVisibility();
     }),
     vscode.commands.registerCommand(
       'leanQuotaMonitor.moveProvider',
       async (key: string, direction: MoveDirection) => {
         if (direction !== 'up' && direction !== 'down') return;
-        await moveProviderOrder(key, direction);
+        await ui.moveProviderOrder(key, direction);
       },
     ),
 
@@ -1438,35 +151,25 @@ export function activate(context: vscode.ExtensionContext): void {
       ),
     ),
     vscode.commands.registerCommand('leanQuotaMonitor.toggleProvider', async (key: string) => {
-      await toggleProviderVisibility(key);
+      await ui.toggleProviderVisibility(key);
     }),
     vscode.workspace.onDidChangeConfiguration((event) => {
+      if (!event.affectsConfiguration('leanQuotaMonitor')) return;
       if (event.affectsConfiguration('leanQuotaMonitor.statusBarAlignment')) {
-        updateStatusBarAlignment();
+        ui.updateStatusBarAlignment();
       }
       if (event.affectsConfiguration('leanQuotaMonitor.refreshIntervalSeconds')) {
         scheduleNextRefresh();
       }
-      if (event.affectsConfiguration('leanQuotaMonitor.providerOrder')) render();
       if (event.affectsConfiguration('leanQuotaMonitor.customProviders')) {
-        render();
         void refreshConfiguredCustoms();
       }
-      if (
-        PROVIDERS.some(
-          ({ id }) =>
-            event.affectsConfiguration(`leanQuotaMonitor.${id}StatusBarName`) ||
-            event.affectsConfiguration(`leanQuotaMonitor.${id}ProviderName`) ||
-            event.affectsConfiguration(`leanQuotaMonitor.${id}Visible`),
-        )
-      ) {
-        render();
-      }
+      ui.render();
     }),
   );
 
   scheduleNextRefresh();
-  displayTimer = setInterval(render, 30_000);
+  displayTimer = setInterval(ui.render, 30_000);
   void refresh();
 }
 

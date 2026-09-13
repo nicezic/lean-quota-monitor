@@ -10,7 +10,7 @@ Lean Quota Monitor is a small VS Code extension that keeps current AI subscripti
 GPT 99% 1w 6d │ AGY 98% 1w 3d │ M3 99% 1w 23h │ OR $74.75
 ```
 
-Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), and reset countdown. Credit providers show **Remaining Credit**.
+Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), and reset countdown. Credit providers show **Remaining Credit**. Each quota provider presents one window at a time — its **Primary Window** (the longest duration by default). When any other window drops to or below the **Low Quota Warning Threshold** (default `20%`, or `off`), the Status Bar preempts to that window with a `⚠️` marker until it recovers.
 
 ## Built-in Providers
 
@@ -24,32 +24,34 @@ Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), a
 | Z.AI | GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
 | OpenRouter | Credit | `OR` | Management Key in VS Code SecretStorage | |
 | Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / 1w / 1m windows |
+| DeepSeek | Balance | `DS` | API Key in VS Code SecretStorage or `DEEPSEEK_API_KEY` | |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
 ## Using the monitor
 
+Clicking the Status Bar opens the monitor — a single menu with everything:
+
 ```text
-Status Bar / Hover
-→ current healthy values
+Built-in / Custom providers
+→ current value · window · visibility
+→ per-provider refresh button
+→ click a provider: show or hide · rename · status-bar name
+  · API key · primary window · troubleshoot (when errored)
 
-Main Quick Pick
-→ current working Built-ins + fast actions
-
-Configure
-→ current working Built-ins + Custom Provider management
-
-Troubleshoot
-→ first-time Built-in setup + recovery
+Menu actions
+→ Add Custom Provider
+→ Refresh Interval
+→ ⚠️ Low Quota Warning Threshold
+→ Status Bar Alignment
+→ Troubleshoot Providers
 ```
 
-A Built-in disappears from the live/management surfaces when its latest refresh fails and remains available in **Troubleshoot** until one acquisition path works again. A healthy Provider can still be hidden from the Status Bar with its visibility setting without disabling refresh.
-
-Clicking the Status Bar itself does nothing. Hover provides Quick Configure, Settings, Troubleshoot, Refresh, visibility, and ordering controls.
+Hover shows the full per-window breakdown plus Refresh All, Quick Configure, Settings, Troubleshoot, reorder arrows, and show/hide controls.
 
 ## Provider setup
 
-For first-time setup of extension-owned keys, if the Provider is not visible, open **Troubleshoot**, choose the Provider and its setup method, then use the direct **Set / Replace Key** action. Once the Provider is working, use **Configure → Provider** to replace its key or change its display settings.
+For first-time setup of extension-owned keys, if the Provider is not visible, open **Troubleshoot**, choose the Provider and its setup method, then use the direct **Set / Replace Key** action. Once the Provider is working, open the monitor and choose the Provider to replace its key or change its display settings — including the **Primary Window** shown on the Status Bar.
 
 | Provider | Setup method |
 | --- | --- |
@@ -58,6 +60,7 @@ For first-time setup of extension-owned keys, if the Provider is not visible, op
 | Z.AI / GLM | Z.AI Coding Plan API Key |
 | OpenRouter | OpenRouter Management Key |
 | OpenCode Go | OpenCode Go API Key |
+| DeepSeek | DeepSeek API Key |
 
 The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs.
 
@@ -70,7 +73,7 @@ Detailed recovery behavior is documented in [`docs/troubleshooting.md`](docs/tro
 Custom Providers are lightweight local status sources:
 
 ```text
-Configure
+Monitor menu
 → Add Custom Provider
 ```
 

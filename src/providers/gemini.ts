@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
-import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
+import { pickPresentedWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 const execFileAsync = promisify(execFile);
 
@@ -82,8 +82,8 @@ export async function fetchGeminiQuota(): Promise<QuotaSnapshot> {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Gemini quota buckets');
   }
-  const statusType = pickStatusWindow(windows, '1week');
-  return { kind: 'quota', providerId: 'gemini', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'gemini', presentedWindow, windows };
 }
 
 export const geminiProvider: BuiltInProviderDefinition = {

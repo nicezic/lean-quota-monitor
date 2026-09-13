@@ -4,7 +4,7 @@ import * as path from 'node:path';
 import process from 'node:process';
 import type { BuiltInProviderDefinition } from '../provider-definition.ts';
 import { hasErrorCode, ProviderError } from '../provider-error.ts';
-import { pickStatusWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
+import { pickPresentedWindow, type QuotaSnapshot, type QuotaWindow } from '../types.ts';
 
 interface ClaudeCredentialFile {
   claudeAiOauth?: {
@@ -46,8 +46,8 @@ export function parseClaudeQuota(body: ClaudeUsageResponse): QuotaSnapshot {
   if (windows.length === 0) {
     throw new ProviderError('SCHEMA_CHANGED', 'No supported Claude quota windows');
   }
-  const statusType = pickStatusWindow(windows, '1week');
-  return { kind: 'quota', providerId: 'anthropic', statusType, windows };
+  const presentedWindow = pickPresentedWindow(windows, '1week');
+  return { kind: 'quota', providerId: 'anthropic', presentedWindow, windows };
 }
 
 export async function fetchAnthropicQuota(): Promise<QuotaSnapshot> {

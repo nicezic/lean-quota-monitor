@@ -1,7 +1,7 @@
 import { defineSecretProvider } from '../provider-definition.ts';
 import { ProviderError } from '../provider-error.ts';
 import {
-  pickStatusWindow,
+  pickPresentedWindow,
   type QuotaSnapshot,
   type QuotaWindow,
   type WindowType,
@@ -63,11 +63,11 @@ export function parseZaiQuota(body: ZaiQuotaResponse): QuotaSnapshot {
     );
   }
 
-  const statusType = pickStatusWindow(windows, '1week');
+  const presentedWindow = pickPresentedWindow(windows, '1week');
   return {
     kind: 'quota',
     providerId: 'zai',
-    statusType,
+    presentedWindow,
     windows,
   };
 }
