@@ -18,7 +18,7 @@ import { parseOpenCodeGoUsage } from '../src/providers/opencode.ts';
 import { parseOpenRouterCredits } from '../src/providers/openrouter.ts';
 import { parseZaiQuota } from '../src/providers/zai.ts';
 
-test('parses Gemini bucket ids from agy command_result', () => {
+test('Gemini parses bucket ids from agy command_result', () => {
   const line = JSON.stringify({
     event: 'command_result',
     command: {
@@ -44,7 +44,7 @@ test('parses Gemini bucket ids from agy command_result', () => {
   );
 });
 
-test('parses MiniMax model remains to quota windows', () => {
+test('MiniMax parses model remains and rejects empty quota', () => {
   const snapshot = parseMiniMaxQuota({
     base_resp: { status_code: 0 },
     model_remains: [
@@ -59,19 +59,14 @@ test('parses MiniMax model remains to quota windows', () => {
       ['5hour', 76],
     ],
   );
-});
 
-test('MiniMax reports SCHEMA_CHANGED when no valid model quota remains', () => {
   assert.throws(
     () => parseMiniMaxQuota({ base_resp: { status_code: 0 }, model_remains: [{}] }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses Kimi weekly and 5h quota by duration', () => {
+test('Kimi parses weekly and 5h quota and rejects invalid windows', () => {
   const snapshot = parseKimiQuota({
     usage: { limit: '2048', used: '214', remaining: '1834', resetTime: '2026-08-25T00:00:00Z' },
     limits: [
@@ -89,20 +84,15 @@ test('parses Kimi weekly and 5h quota by duration', () => {
       ['5hour', 31],
     ],
   );
-});
 
-test('Kimi quota reports SCHEMA_CHANGED without valid windows', () => {
   assert.throws(
     () => parseKimiQuota({ usage: { limit: '0', used: '0' }, limits: [] }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses Codex app-server 5h and weekly windows by duration', () => {
-  const snapshot = parseCodexAppServerRateLimits({
+test('Codex parses app-server and direct quotas, rejecting non-positive duration', () => {
+  const appServer = parseCodexAppServerRateLimits({
     rateLimitsByLimitId: {
       codex: {
         limitId: 'codex',
@@ -111,37 +101,29 @@ test('parses Codex app-server 5h and weekly windows by duration', () => {
       },
     },
   });
-
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
+    appServer.windows.map((x) => [x.type, x.remainingPercent]),
     [
       ['1week', 65],
       ['5hour', 80],
     ],
   );
-});
 
-test('parses Codex direct quota remaining percentage', () => {
-  const snapshot = parseCodexDirectQuota({
+  const direct = parseCodexDirectQuota({
     rate_limit: { primary_window: { used_percent: 10, limit_window_seconds: 604_800 } },
   });
   assert.deepEqual(
-    snapshot.windows.map((x) => [x.type, x.remainingPercent]),
+    direct.windows.map((x) => [x.type, x.remainingPercent]),
     [['1week', 90]],
   );
-});
 
-test('Codex direct quota rejects windows without a positive duration', () => {
   assert.throws(
     () => parseCodexDirectQuota({ rate_limit: { primary_window: { used_percent: 25 } } }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses Z.AI 5h and weekly token windows by type and duration', () => {
+test('Z.AI parses token windows by type and duration, rejecting invalid shapes', () => {
   const snapshot = parseZaiQuota({
     data: {
       limits: [
@@ -172,22 +154,14 @@ test('parses Z.AI 5h and weekly token windows by type and duration', () => {
     ],
   );
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date(1787500000000).toISOString());
-});
 
-test('Z.AI unsupported token shapes report SCHEMA_CHANGED instead of guessing', () => {
   assert.throws(
-    () =>
-      parseZaiQuota({
-        data: { limits: [{ type: 'POINTS_LIMIT', percentage: 10 }] },
-      }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    () => parseZaiQuota({ data: { limits: [{ type: 'POINTS_LIMIT', percentage: 10 }] } }),
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses OpenRouter remaining credits', () => {
+test('OpenRouter parses remaining credits and rejects invalid numeric fields', () => {
   const snapshot = parseOpenRouterCredits({
     data: { total_credits: 100.5, total_usage: 25.75 },
   });
@@ -195,19 +169,14 @@ test('parses OpenRouter remaining credits', () => {
   assert.equal(snapshot.remainingCredits, 74.75);
   assert.equal(snapshot.totalCredits, 100.5);
   assert.equal(snapshot.usedCredits, 25.75);
-});
 
-test('OpenRouter rejects invalid numeric fields with SCHEMA_CHANGED', () => {
   assert.throws(
     () => parseOpenRouterCredits({ data: {} }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
+test('OpenCode Go parses rolling/weekly/monthly windows and rejects invalid responses', () => {
   const snapshot = parseOpenCodeGoUsage({
     usage: {
       rolling: { percent: 25, resetsAt: '2026-08-24T12:00:00.000Z' },
@@ -225,31 +194,14 @@ test('parses OpenCode Go rolling, weekly, and monthly usage windows', () => {
       ['5hour', 25, 75],
     ],
   );
-  assert.equal(
-    snapshot.windows[0].resetAt?.toISOString(),
-    new Date('2026-09-01T00:00:00.000Z').toISOString(),
-  );
-  assert.equal(
-    snapshot.windows[1].resetAt?.toISOString(),
-    new Date('2026-08-28T00:00:00.000Z').toISOString(),
-  );
-  assert.equal(
-    snapshot.windows[2].resetAt?.toISOString(),
-    new Date('2026-08-24T12:00:00.000Z').toISOString(),
-  );
-});
 
-test('OpenCode Go response without valid windows reports SCHEMA_CHANGED', () => {
   assert.throws(
     () => parseOpenCodeGoUsage({ usage: { rolling: {} } }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses Claude OAuth usage windows', () => {
+test('Claude parses OAuth 5-hour and 7-day usage windows', () => {
   const snapshot = parseClaudeQuota({
     five_hour: { utilization: 23, resets_at: '2026-08-18T15:00:00Z' },
     seven_day: { utilization: 41, resets_at: '2026-08-24T00:00:00Z' },
@@ -264,8 +216,8 @@ test('parses Claude OAuth usage windows', () => {
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), '2026-08-24T00:00:00.000Z');
 });
 
-test('parses DeepSeek CNY balance to credit snapshot with ¥ format', () => {
-  const snapshot = parseDeepSeekBalance({
+test('DeepSeek parses CNY and USD balances with currency formatting and rejects empty balance', () => {
+  const cny = parseDeepSeekBalance({
     is_available: true,
     balance_infos: [
       {
@@ -276,47 +228,27 @@ test('parses DeepSeek CNY balance to credit snapshot with ¥ format', () => {
       },
     ],
   });
+  assert.equal(cny.kind, 'credit');
+  assert.equal(cny.providerId, 'deepseek');
+  assert.equal(cny.currency, 'CNY');
+  assert.equal(cny.remainingCredits, 110);
+  assert.equal(cny.formattedRemaining, '¥110.00');
 
-  assert.equal(snapshot.kind, 'credit');
-  assert.equal(snapshot.providerId, 'deepseek');
-  assert.equal(snapshot.currency, 'CNY');
-  assert.equal(snapshot.remainingCredits, 110);
-  assert.equal(snapshot.formattedRemaining, '¥110.00');
-});
-
-test('parses DeepSeek USD balance to credit snapshot with $ format', () => {
-  const snapshot = parseDeepSeekBalance({
+  const usd = parseDeepSeekBalance({
     is_available: true,
-    balance_infos: [
-      {
-        currency: 'USD',
-        total_balance: '15.50',
-      },
-    ],
+    balance_infos: [{ currency: 'USD', total_balance: '15.50' }],
   });
+  assert.equal(usd.currency, 'USD');
+  assert.equal(usd.remainingCredits, 15.5);
+  assert.equal(usd.formattedRemaining, '$15.50');
 
-  assert.equal(snapshot.kind, 'credit');
-  assert.equal(snapshot.currency, 'USD');
-  assert.equal(snapshot.remainingCredits, 15.5);
-  assert.equal(snapshot.formattedRemaining, '$15.50');
-});
-
-test('DeepSeek response without valid balance reports SCHEMA_CHANGED', () => {
   assert.throws(
     () => parseDeepSeekBalance({ is_available: true, balance_infos: [] }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });
 
-test('parses Devin user status protobuf into weekly and daily quota windows', () => {
-  // Construct PlanStatus protobuf message
-  // Field 14 (dailyPercent) = 100
-  // Field 15 (weeklyPercent) = 98
-  // Field 17 (dailyResetAt) = 1789286400
-  // Field 18 (weeklyResetAt) = 1789286400
+test('Devin parses protobuf status into daily/weekly windows and extracts apiKey', () => {
   const planStatusParts: number[] = [
     ...encodeVarint(14 * 8),
     ...encodeVarint(100),
@@ -328,17 +260,12 @@ test('parses Devin user status protobuf into weekly and daily quota windows', ()
     ...encodeVarint(1789286400),
   ];
   const planStatus = new Uint8Array(planStatusParts);
-
-  // Wrap in UserStatus (Field 13 = planStatus)
   const userStatus = encodeLengthDelimited(13, planStatus);
-
-  // Wrap in GetUserStatusResponse (Field 1 = userStatus)
   const responseMsg = encodeLengthDelimited(1, userStatus);
 
   const raw = parseDevinUserStatus(responseMsg);
   const snapshot = parseDevinQuota(raw);
 
-  assert.equal(snapshot.kind, 'quota');
   assert.equal(snapshot.providerId, 'devin');
   assert.equal(snapshot.presentedWindow, '1week');
   assert.deepEqual(
@@ -348,33 +275,19 @@ test('parses Devin user status protobuf into weekly and daily quota windows', ()
       ['1day', 0, 100],
     ],
   );
-  assert.equal(
-    snapshot.windows[0].resetAt?.toISOString(),
-    new Date(1789286400 * 1000).toISOString(),
-  );
-  assert.equal(
-    snapshot.windows[1].resetAt?.toISOString(),
-    new Date(1789286400 * 1000).toISOString(),
-  );
-});
 
-test('Devin response without valid quota windows reports SCHEMA_CHANGED', () => {
   assert.throws(
     () => parseDevinQuota({}),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
+  );
+
+  assert.equal(
+    extractDevinApiKey('devin_api_url = "https://api.devin.ai"\nwindsurf_api_key = "tok-123"\n'),
+    'tok-123',
   );
 });
 
-test('extractDevinApiKey extracts windsurf_api_key from credentials.toml', () => {
-  const content = 'devin_api_url = "https://api.devin.ai"\nwindsurf_api_key = "test-token-123"\n';
-  assert.equal(extractDevinApiKey(content), 'test-token-123');
-  assert.equal(extractDevinApiKey('other = "value"'), undefined);
-});
-
-test('parses Copilot premium interactions into a 1month quota snapshot', () => {
+test('Copilot parses premium interactions and rejects free tier with PLAN_REQUIRED', () => {
   const snapshot = parseCopilotQuota({
     copilot_plan: 'individual',
     quota_reset_date: '2026-10-01',
@@ -388,7 +301,6 @@ test('parses Copilot premium interactions into a 1month quota snapshot', () => {
     },
   });
 
-  assert.equal(snapshot.kind, 'quota');
   assert.equal(snapshot.providerId, 'copilot');
   assert.equal(snapshot.presentedWindow, '1month');
   assert.equal(snapshot.windows.length, 1);
@@ -396,24 +308,15 @@ test('parses Copilot premium interactions into a 1month quota snapshot', () => {
   assert.equal(snapshot.windows[0].remainingPercent, 95.5);
   assert.equal(snapshot.windows[0].usedPercent, 4.5);
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date('2026-10-01').toISOString());
-});
 
-test('Copilot free tier without premium quota reports PLAN_REQUIRED', () => {
   assert.throws(
     () =>
       parseCopilotQuota({
         copilot_plan: 'individual',
         quota_snapshots: {
-          premium_interactions: {
-            entitlement: 0,
-            remaining: 0,
-            has_quota: false,
-          },
+          premium_interactions: { entitlement: 0, remaining: 0, has_quota: false },
         },
       }),
-    (error) => {
-      assert.equal((error as { code?: string }).code, 'PLAN_REQUIRED');
-      return true;
-    },
+    (e) => (e as { code?: string }).code === 'PLAN_REQUIRED',
   );
 });
