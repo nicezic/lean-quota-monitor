@@ -6,7 +6,8 @@ export type ProviderId =
   | 'kimi'
   | 'zai'
   | 'openrouter'
-  | 'opencode';
+  | 'opencode'
+  | 'deepseek';
 
 export const WINDOW_TYPES = {
   '5hour': { short: '5h' },

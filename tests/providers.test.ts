@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { parseClaudeQuota } from '../src/providers/anthropic.ts';
+import { parseDeepSeekBalance } from '../src/providers/deepseek.ts';
 import { parseAgyQuota } from '../src/providers/gemini.ts';
 import { parseKimiQuota } from '../src/providers/kimi.ts';
 import { parseMiniMaxQuota } from '../src/providers/minimax.ts';
@@ -253,4 +254,51 @@ test('parses Claude OAuth usage windows', () => {
     ],
   );
   assert.equal(snapshot.windows[0].resetAt?.toISOString(), '2026-08-24T00:00:00.000Z');
+});
+
+test('parses DeepSeek CNY balance to credit snapshot with ¥ format', () => {
+  const snapshot = parseDeepSeekBalance({
+    is_available: true,
+    balance_infos: [
+      {
+        currency: 'CNY',
+        total_balance: '110.00',
+        granted_balance: '10.00',
+        topped_up_balance: '100.00',
+      },
+    ],
+  });
+
+  assert.equal(snapshot.kind, 'credit');
+  assert.equal(snapshot.providerId, 'deepseek');
+  assert.equal(snapshot.currency, 'CNY');
+  assert.equal(snapshot.remainingCredits, 110);
+  assert.equal(snapshot.formattedRemaining, '¥110.00');
+});
+
+test('parses DeepSeek USD balance to credit snapshot with $ format', () => {
+  const snapshot = parseDeepSeekBalance({
+    is_available: true,
+    balance_infos: [
+      {
+        currency: 'USD',
+        total_balance: '15.50',
+      },
+    ],
+  });
+
+  assert.equal(snapshot.kind, 'credit');
+  assert.equal(snapshot.currency, 'USD');
+  assert.equal(snapshot.remainingCredits, 15.5);
+  assert.equal(snapshot.formattedRemaining, '$15.50');
+});
+
+test('DeepSeek response without valid balance reports SCHEMA_CHANGED', () => {
+  assert.throws(
+    () => parseDeepSeekBalance({ is_available: true, balance_infos: [] }),
+    (error) => {
+      assert.equal((error as { code?: string }).code, 'SCHEMA_CHANGED');
+      return true;
+    },
+  );
 });

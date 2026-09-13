@@ -125,7 +125,8 @@
               "kimi",
               "zai",
               "openrouter",
-              "opencode"
+              "opencode",
+              "deepseek"
             ],
             "items": {
               "type": "string"
@@ -403,6 +404,30 @@
             "default": "auto",
             "description": "Default Quota Window On Status Bar for OpenCode Go. 'auto' uses the provider default (longest duration: 1month); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
             "order": 40
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: DeepSeek",
+        "order": 88,
+        "properties": {
+          "leanQuotaMonitor.deepseekProviderName": {
+            "type": "string",
+            "default": "DeepSeek",
+            "description": "Display name shown in hover details for DeepSeek balance (default: DeepSeek).",
+            "order": 10
+          },
+          "leanQuotaMonitor.deepseekStatusBarName": {
+            "type": "string",
+            "default": "DS",
+            "description": "Status bar name for DeepSeek remaining balance (default: DS).",
+            "order": 20
+          },
+          "leanQuotaMonitor.deepseekVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show DeepSeek remaining balance in the Status Bar. Hover details remain visible.",
+            "order": 30
           }
         }
       },

@@ -110,6 +110,23 @@ test('credit presentation formats detail with 20-char credit badge', () => {
   assert.equal(detail.block, '`░░░░░░ credit ░░░░░░`  **OpenRouter** `OR` **$20.00**');
 });
 
+test('credit presentation renders provider-formatted currency text', () => {
+  const state: ProviderState = {
+    snapshot: {
+      kind: 'credit',
+      providerId: 'deepseek',
+      currency: 'CNY',
+      totalCredits: 110,
+      usedCredits: 0,
+      remainingCredits: 110,
+      formattedRemaining: '¥110.00',
+    },
+  };
+  assert.equal(providerStatusText('DS', state), 'DS ¥110.00');
+  const detail = providerDetail('DeepSeek', 'DS', state);
+  assert.equal(detail.block, '`░░░░░░ credit ░░░░░░`  **DeepSeek** `DS` **¥110.00**');
+});
+
 test('custom presentation formats detail with 20-char custom badge', () => {
   const state: CustomProviderState = { output: '42' };
   const detail = customDetail('My Script', state, Date.now(), 'my');
