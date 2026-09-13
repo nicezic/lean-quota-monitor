@@ -2,7 +2,9 @@
 
 **One status bar. All your AI quotas.**
 
-Lean Quota Monitor is a small VS Code extension that keeps current AI subscription quota and credit state in the Status Bar. Provider acquisition currently supports **Linux / Remote WSL**, **native Windows (Beta)**, and **macOS partial Beta** Extension Hosts. macOS currently supports Codex and AGY; Claude subscription quota is not enabled there because Claude Code stores its credentials in macOS Keychain.
+Lean Quota Monitor is a VS Code AI usage and quota monitor for Codex, Claude Code, GitHub Copilot, Gemini / Antigravity, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, DeepSeek, and Devin.
+
+Track subscription usage limits, remaining quota, reset times, and credits directly in the VS Code Status Bar. Provider acquisition currently supports **Linux / Remote WSL**, **native Windows (Beta)**, and **macOS partial Beta** Extension Hosts. macOS currently supports Codex, AGY, and Copilot; Claude subscription quota is not enabled there because Claude Code stores its credentials in macOS Keychain.
 
 ![Lean Quota Monitor](.github/assets/lean-quota-monitor.png)
 
@@ -10,7 +12,7 @@ Lean Quota Monitor is a small VS Code extension that keeps current AI subscripti
 GPT 99% 1w 6d │ AGY 98% 1w 3d │ M3 99% 1w 23h │ OR $74.75
 ```
 
-Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), and reset countdown. Credit providers show **Remaining Credit**. Each quota provider presents one window at a time — its **Primary Window** (the longest duration by default). When any other window drops to or below the **Low Quota Warning Threshold** (default `20%`, or `off`), the Status Bar preempts to that window with a `⚠️` marker until it recovers.
+Quota providers show the remaining percentage, window type (`5h`, `1d`, `1w`, `1m`), and reset countdown. Credit providers show **Remaining Credit**. Each quota provider presents one window at a time — its **Primary Window** (the longest duration by default). When any other window drops to or below the **Low Quota Warning Threshold** (default `20%`, or `off`), the Status Bar preempts to that window with a `⚠️` marker (e.g. `⚠️ GPT 15% 5h 12m`) until it recovers.
 
 ## Built-in Providers
 
@@ -18,6 +20,7 @@ Quota providers show the remaining percentage, window type (`5h`, `1w`, `1m`), a
 | --- | --- | --- | --- | --- |
 | OpenAI | Codex | `GPT` | Local Codex login | 5h limit officially lifted for now |
 | Anthropic | Claude | `CLA` | Local Claude Code OAuth login | |
+| GitHub | Copilot | `Copilot` | Local `gh auth login` or GitHub Token | 1m premium requests window |
 | Google | Gemini / Antigravity | `AGY` | AGY CLI `/quota` | |
 | MiniMax | Token Plan | `M3` | Token Plan API Key in VS Code SecretStorage | |
 | Moonshot AI | Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
@@ -65,7 +68,7 @@ For first-time setup of extension-owned keys, if the Provider is not visible, op
 
 The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs.
 
-Codex, Claude, AGY, and Devin reuse their existing local login/CLI authority. Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
+Codex, Claude, Copilot, AGY, and Devin reuse their existing local login/CLI authority (or GitHub Token for Copilot). Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
 
 Detailed recovery behavior is documented in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 

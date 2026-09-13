@@ -1,9 +1,9 @@
 {
   "name": "lean-quota-monitor",
   "displayName": "Lean Quota Monitor",
-  "description": "Minimal yet powerful monitor for AI subscription quotas and credits in the VS Code Status Bar — Codex, Claude, Gemini, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, plus customizable script status.",
+  "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, DeepSeek, and Devin.",
   "icon": "images/icon.png",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "publisher": "nicezic",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
@@ -29,33 +29,36 @@
     "Visualization"
   ],
   "keywords": [
-    "ai",
-    "quota",
-    "usage",
+    "ai quota",
+    "ai usage",
+    "ai usage monitor",
+    "quota monitor",
+    "usage monitor",
+    "usage limits",
+    "rate limits",
     "status bar",
-    "vibe coding",
     "codex",
+    "codex quota",
+    "codex usage",
+    "openai",
     "claude",
+    "claude code",
+    "claude quota",
+    "claude usage",
+    "anthropic",
+    "copilot",
+    "github copilot",
     "gemini",
+    "antigravity",
     "minimax",
     "kimi",
+    "kimi code",
     "glm",
     "openrouter",
     "opencode",
-    "opencode go",
-    "openai",
-    "anthropic",
-    "antigravity",
-    "z.ai",
-    "claude code",
-    "kimi code",
-    "moonshot",
-    "anomaly",
-    "quota monitor",
-    "usage tracker",
-    "wsl",
-    "credits",
-    "subscription"
+    "deepseek",
+    "devin",
+    "credits"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -127,7 +130,8 @@
               "openrouter",
               "opencode",
               "deepseek",
-              "devin"
+              "devin",
+              "copilot"
             ],
             "items": {
               "type": "string"

@@ -16,6 +16,9 @@ Built-in providers:
 - Z.AI / GLM Coding Plan
 - OpenRouter Credit
 - OpenCode Go
+- DeepSeek
+- Devin
+- GitHub Copilot
 
 Custom Providers are intentionally outside this contract. They are opaque executable status sources and own their own credentials; see [`adr/0001-live-status-and-native-management.md`](adr/0001-live-status-and-native-management.md).
 
@@ -37,12 +40,13 @@ ProviderSnapshot
    ├─ currency
    ├─ totalCredits
    ├─ usedCredits
-   └─ remainingCredits
+   ├─ remainingCredits
+   └─ formattedRemaining
 ```
 
 `QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `presentedWindow`, determined via preemption rules (`remainingPercent` at or below the configured Low Quota Warning Threshold elevates an urgent shorter window; otherwise provider primary window, overridable per provider via `*PrimaryWindow` settings). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
-Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, and Devin return `QuotaSnapshot`; OpenRouter and DeepSeek return `CreditSnapshot`.
+Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, Devin, and GitHub Copilot return `QuotaSnapshot`; OpenRouter and DeepSeek return `CreditSnapshot`.
 
 A number must actually be present in the response. A missing value is never treated as zero:
 
@@ -69,13 +73,16 @@ Kimi       kimi-api-key
 Z.AI       zai-quota-api
 OpenRouter openrouter-credits-api
 OpenCode   opencode-go-usage-api
+DeepSeek   deepseek-balance-api
+Devin      devin-live-rpc → devin-local-cache
+Copilot    gh-cli → secret-token
 ```
 
 These ids are runtime diagnostic metadata, not user-facing Provider identities.
 
 ### Extension-owned API keys
 
-MiniMax, Kimi, Z.AI, OpenRouter, and OpenCode Go use API keys owned by this extension. Their setup flow is shared:
+MiniMax, Kimi, Z.AI, OpenRouter, OpenCode Go, DeepSeek, and GitHub Copilot support API keys or tokens owned by this extension. Their setup flow is shared:
 
 ```text
 Troubleshoot (first-time setup / recovery)
@@ -692,26 +699,65 @@ primaryWindow: 1week (preempted by 1day when daily remaining <= 20%)
 
 ## GitHub Copilot
 
-### Acquisition Paths
+Implementation: `src/providers/copilot.ts`
 
-1. `gh-cli`: Run `gh auth token` CLI to obtain an OAuth token.
-2. `secret-token`: Read `leanQuotaMonitor.copilotToken` from VS Code SecretStorage.
+### Credential authority
 
-Endpoint:
+1. Local GitHub CLI (`gh auth login`) via `gh auth token`
+2. Extension-owned token: `leanQuotaMonitor.copilotToken` in VS Code SecretStorage
+
+### Quota request
+
 ```text
 GET https://api.github.com/copilot_internal/user
 Authorization: token <github_token>
+Accept: application/json
 Editor-Version: vscode/1.96.2
 Editor-Plugin-Version: copilot-chat/0.26.7
 User-Agent: GitHubCopilotChat/0.26.7
 X-Github-Api-Version: 2025-04-01
 ```
 
+HTTP timeout: 15 seconds.
+
+### Acquisition Paths
+
+#### Path 1: `gh-cli` (Default local CLI)
+
+Executes `gh auth token` via `execFile('gh', ['auth', 'token'])`.
+- Fails with `CLI_NOT_FOUND` if `gh` is not found in PATH.
+- Fails with `AUTH_REQUIRED` if `gh` command exits non-zero (not logged in).
+
+#### Path 2: `secret-token` (SecretStorage fallback/alternative)
+
+Reads `leanQuotaMonitor.copilotToken` from VS Code SecretStorage.
+- Fails with `KEY_MISSING` if no token is configured.
+
 ### Parse / normalize
 
-- Source field: `quota_snapshots.premium_interactions` only (chat and completions are omitted per Ponytail YAGNI).
-- Free plans without premium quota (`entitlement: 0`, `has_quota: false`): raises `PLAN_REQUIRED`.
-- Window mapping: `1month` window (`WINDOW_TYPES['1month']`, short `1m`). Reset date from `quota_reset_date_utc` or `quota_reset_date`.
+Source fields:
+
+```text
+quota_snapshots.premium_interactions.percent_remaining
+quota_snapshots.premium_interactions.remaining
+quota_snapshots.premium_interactions.entitlement
+quota_snapshots.premium_interactions.unlimited
+quota_snapshots.premium_interactions.has_quota
+quota_reset_date_utc (or quota_reset_date)
+```
+
+Normalization:
+
+- **Metric selection**: `premium_interactions` only (`chat` and `completions` are omitted per Ponytail YAGNI).
+- **Entitlement / Plan check**: If `entitlement === 0 && !has_quota && !unlimited`, raises `PLAN_REQUIRED` ("Copilot plan does not include premium models").
+- **Remaining percentage**:
+  - If `unlimited: true` → `100%`
+  - Else if `percent_remaining` is a valid finite number → clamped to `0..100`
+  - Else if `remaining` and `entitlement` (> 0) exist → `(remaining / entitlement) * 100` clamped to `0..100`
+  - Otherwise raises `SCHEMA_CHANGED`.
+- **Window mapping**: Normalized to a `1month` window (`WINDOW_TYPES['1month']`, short `1m`).
+- **Reset time**: Parsed from `quota_reset_date_utc` (or `quota_reset_date`) as `Date`.
+- **HTTP status**: 401 or 403 raises `AUTH_REQUIRED` ("GitHub token rejected or expired").
 
 ---
 

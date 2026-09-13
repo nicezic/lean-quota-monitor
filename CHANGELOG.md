@@ -2,6 +2,9 @@
 
 ## 0.1.3 - 2026-09-13
 
+- Add GitHub Copilot provider with premium model interactions quota (`1month` window).
+- Add configurable Low Quota Warning Threshold (`⚠️` indicator on Status Bar).
+- Add Default Quota Window On Status Bar picker to provider settings.
 - Add DeepSeek credit balance provider and currency formatting.
 - Add Devin (Cognition) provider with live Connect-RPC and local cache fallback (1w / 1d windows).
 - Compact single-line display for credit and custom providers in Hover.
