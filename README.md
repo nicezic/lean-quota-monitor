@@ -2,7 +2,7 @@
 
 **One status bar. All your AI quotas.**
 
-Lean Quota Monitor is a VS Code AI usage and quota monitor for Codex, Claude Code, GitHub Copilot, Gemini / Antigravity, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, DeepSeek, and Devin.
+Lean Quota Monitor is a VS Code AI usage and quota monitor for Codex, Claude Code, GitHub Copilot, Gemini / Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and Devin.
 
 Track subscription usage limits, remaining quota, reset times, and credits directly in the VS Code Status Bar. Provider acquisition currently supports **Linux / Remote WSL**, **native Windows (Beta)**, and **macOS partial Beta** Extension Hosts. macOS currently supports Codex, AGY, and Copilot; Claude subscription quota is not enabled there because Claude Code stores its credentials in macOS Keychain.
 
@@ -26,6 +26,7 @@ Quota providers show the remaining percentage, window type (`5h`, `1d`, `1w`, `1
 | Moonshot AI | Kimi Code | `KIMI` | Kimi Code API Key in VS Code SecretStorage | |
 | Z.AI | GLM Coding Plan | `GLM` | Coding Plan API Key in VS Code SecretStorage | |
 | OpenRouter | Credit | `OR` | Management Key in VS Code SecretStorage | |
+| Vercel | AI Gateway Credit | `VER` | AI Gateway API Key in VS Code SecretStorage | Team credit balance |
 | Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / 1w / 1m windows |
 | DeepSeek | Balance | `DS` | API Key in VS Code SecretStorage or `DEEPSEEK_API_KEY` | |
 | Cognition | Devin | `DEV` | Local Devin CLI login | 1w / 1d windows |
@@ -63,6 +64,7 @@ For first-time setup of extension-owned keys, if the Provider is not visible, op
 | Kimi | Kimi Code API Key |
 | Z.AI / GLM | Z.AI Coding Plan API Key |
 | OpenRouter | OpenRouter Management Key |
+| Vercel AI Gateway | Vercel AI Gateway API Key |
 | OpenCode Go | OpenCode Go API Key |
 | DeepSeek | DeepSeek API Key |
 

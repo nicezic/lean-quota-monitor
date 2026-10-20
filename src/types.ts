@@ -6,6 +6,7 @@ export type ProviderId =
   | 'kimi'
   | 'zai'
   | 'openrouter'
+  | 'vercel'
   | 'opencode'
   | 'deepseek'
   | 'devin'
@@ -72,7 +73,7 @@ export interface QuotaSnapshot extends SnapshotBase {
 export interface CreditSnapshot extends SnapshotBase {
   kind: 'credit';
   currency: string;
-  totalCredits: number;
+  totalCredits?: number;
   usedCredits: number;
   remainingCredits: number;
   formattedRemaining: string;

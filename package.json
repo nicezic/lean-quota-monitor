@@ -1,7 +1,7 @@
 {
   "name": "lean-quota-monitor",
   "displayName": "Lean Quota Monitor",
-  "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, OpenCode Go, DeepSeek, and Devin.",
+  "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and Devin.",
   "icon": "images/icon.png",
   "version": "0.1.3",
   "publisher": "nicezic",
@@ -29,36 +29,33 @@
     "Visualization"
   ],
   "keywords": [
+    "quota",
+    "usage",
     "ai quota",
     "ai usage",
-    "ai usage monitor",
     "quota monitor",
-    "usage monitor",
     "usage limits",
     "rate limits",
+    "credits",
     "status bar",
-    "codex",
-    "codex quota",
-    "codex usage",
     "openai",
+    "codex",
+    "anthropic",
     "claude",
     "claude code",
-    "claude quota",
-    "claude usage",
-    "anthropic",
-    "copilot",
     "github copilot",
     "gemini",
     "antigravity",
     "minimax",
-    "kimi",
     "kimi code",
     "glm",
     "openrouter",
     "opencode",
     "deepseek",
     "devin",
-    "credits"
+    "vercel",
+    "vercel ai gateway",
+    "vibe coding"
   ],
   "activationEvents": [
     "onStartupFinished"
@@ -128,6 +125,7 @@
               "kimi",
               "zai",
               "openrouter",
+              "vercel",
               "opencode",
               "deepseek",
               "devin",
@@ -372,6 +370,30 @@
             "type": "boolean",
             "default": true,
             "description": "Show OpenRouter remaining credits in the Status Bar. Hover details remain visible.",
+            "order": 30
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Vercel AI Gateway",
+        "order": 82,
+        "properties": {
+          "leanQuotaMonitor.vercelProviderName": {
+            "type": "string",
+            "default": "Vercel AI Gateway",
+            "description": "Display name shown in hover details for Vercel AI Gateway credits (default: Vercel AI Gateway).",
+            "order": 10
+          },
+          "leanQuotaMonitor.vercelStatusBarName": {
+            "type": "string",
+            "default": "VER",
+            "description": "Status bar name for Vercel AI Gateway remaining credits (default: VER).",
+            "order": 20
+          },
+          "leanQuotaMonitor.vercelVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Vercel AI Gateway remaining credits in the Status Bar. Hover details remain visible.",
             "order": 30
           }
         }

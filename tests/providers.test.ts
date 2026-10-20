@@ -16,6 +16,7 @@ import { parseMiniMaxQuota } from '../src/providers/minimax.ts';
 import { parseCodexAppServerRateLimits, parseCodexDirectQuota } from '../src/providers/openai.ts';
 import { parseOpenCodeGoUsage } from '../src/providers/opencode.ts';
 import { parseOpenRouterCredits } from '../src/providers/openrouter.ts';
+import { parseVercelCredits } from '../src/providers/vercel.ts';
 import { parseZaiQuota } from '../src/providers/zai.ts';
 
 test('Gemini parses bucket ids from agy command_result', () => {
@@ -172,6 +173,22 @@ test('OpenRouter parses remaining credits and rejects invalid numeric fields', (
 
   assert.throws(
     () => parseOpenRouterCredits({ data: {} }),
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
+  );
+});
+
+test('Vercel AI Gateway parses credit balance and rejects invalid amounts', () => {
+  const snapshot = parseVercelCredits({ balance: '95.50', total_used: '4.50' });
+  assert.equal(snapshot.kind, 'credit');
+  assert.equal(snapshot.providerId, 'vercel');
+  assert.equal(snapshot.remainingCredits, 95.5);
+  assert.equal(snapshot.usedCredits, 4.5);
+  assert.equal(snapshot.formattedRemaining, '$95.50');
+  assert.equal(snapshot.totalCredits, undefined);
+
+  assert.equal(parseVercelCredits({ balance: '0', total_used: '5' }).formattedRemaining, '$0.00');
+  assert.throws(
+    () => parseVercelCredits({ balance: '', total_used: '5' }),
     (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });

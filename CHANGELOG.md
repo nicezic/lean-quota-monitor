@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.4 - 2026-10-20
+
+- Add Vercel AI Gateway credit balance provider with API Key setup in VS Code SecretStorage.
+- Refine Marketplace keywords for quota, provider, and vibe coding searches.
+
 ## 0.1.3 - 2026-09-13
 
 - Add GitHub Copilot provider with premium model interactions quota (`1month` window).

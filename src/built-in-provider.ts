@@ -9,6 +9,7 @@ import { miniMaxProvider } from './providers/minimax.ts';
 import { openAIProvider } from './providers/openai.ts';
 import { openCodeProvider } from './providers/opencode.ts';
 import { openRouterProvider } from './providers/openrouter.ts';
+import { vercelProvider } from './providers/vercel.ts';
 import { zaiProvider } from './providers/zai.ts';
 import type { ProviderId } from './types.ts';
 
@@ -20,6 +21,7 @@ export const BUILT_IN_PROVIDERS: readonly BuiltInProviderDefinition[] = [
   kimiProvider,
   zaiProvider,
   openRouterProvider,
+  vercelProvider,
   openCodeProvider,
   deepSeekProvider,
   devinProvider,

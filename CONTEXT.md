@@ -14,7 +14,7 @@
 - **Primary Window** — The Window Type a Built-in Provider presents by default (`Default Quota Window On Status Bar`). Provider-defined, overridable per provider via its `*PrimaryWindow` setting (`auto` keeps the provider default, which is the longest duration).
 - **Urgent Window** — A Quota Snapshot window whose remaining percentage is at or below the configured Low Quota Warning Threshold (default: 20%).
 - **Presented Window** — The Window Type actually presented for a Quota Snapshot: the Primary Window unless an Urgent Window preempts it (lowest remaining wins; ties favor the shorter window).
-- **Credit Snapshot** — A Provider Snapshot expressed as monetary credit totals, usage, and remaining credit.
+- **Credit Snapshot** — A Provider Snapshot expressed as monetary usage and remaining credit; total credit is optional when the Provider does not report it.
 - **Remaining Credit** — The product-facing remaining monetary balance of a Credit Snapshot.
 - **Provider State** — The current runtime outcome for a Provider: current snapshot or current error, update time, and successful acquisition path when available.
 - **Provider Error** — An acquisition failure of a Built-in or Custom Provider, optionally classified with a stable diagnostic code and safe detail.

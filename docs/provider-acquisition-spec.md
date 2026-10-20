@@ -15,6 +15,7 @@ Built-in providers:
 - Kimi Code
 - Z.AI / GLM Coding Plan
 - OpenRouter Credit
+- Vercel AI Gateway Credit
 - OpenCode Go
 - DeepSeek
 - Devin
@@ -38,7 +39,7 @@ ProviderSnapshot
 │
 └─ CreditSnapshot
    ├─ currency
-   ├─ totalCredits
+   ├─ totalCredits?
    ├─ usedCredits
    ├─ remainingCredits
    └─ formattedRemaining
@@ -46,7 +47,7 @@ ProviderSnapshot
 
 `QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `presentedWindow`, determined via preemption rules (`remainingPercent` at or below the configured Low Quota Warning Threshold elevates an urgent shorter window; otherwise provider primary window, overridable per provider via `*PrimaryWindow` settings). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
-Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, Devin, and GitHub Copilot return `QuotaSnapshot`; OpenRouter and DeepSeek return `CreditSnapshot`.
+Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, Devin, and GitHub Copilot return `QuotaSnapshot`; OpenRouter, Vercel AI Gateway, and DeepSeek return `CreditSnapshot`. `totalCredits` is optional when the API does not report a real credit total; it must not be fabricated from balance plus lifetime usage.
 
 A number must actually be present in the response. A missing value is never treated as zero:
 
@@ -72,6 +73,7 @@ MiniMax    minimax-token-plan-api
 Kimi       kimi-api-key
 Z.AI       zai-quota-api
 OpenRouter openrouter-credits-api
+Vercel     vercel-ai-gateway-credits-api
 OpenCode   opencode-go-usage-api
 DeepSeek   deepseek-balance-api
 Devin      devin-live-rpc → devin-local-cache
@@ -82,7 +84,7 @@ These ids are runtime diagnostic metadata, not user-facing Provider identities.
 
 ### Extension-owned API keys
 
-MiniMax, Kimi, Z.AI, OpenRouter, OpenCode Go, DeepSeek, and GitHub Copilot support API keys or tokens owned by this extension. Their setup flow is shared:
+MiniMax, Kimi, Z.AI, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and GitHub Copilot support API keys or tokens owned by this extension. Their setup flow is shared:
 
 ```text
 Troubleshoot (first-time setup / recovery)
@@ -532,6 +534,44 @@ Official references:
 
 - https://openrouter.ai/docs/api/api-reference/credits/get-credits
 - https://openrouter.ai/docs/guides/overview/auth/management-api-keys
+
+---
+
+## Vercel AI Gateway Credit
+
+Implementation: `src/providers/vercel.ts`.
+
+### Credential authority
+
+Vercel AI Gateway uses an **AI Gateway API Key** stored in VS Code `SecretStorage` (key: `leanQuotaMonitor.vercel.aiGatewayApiKey`). A general Vercel access token is not substituted.
+
+### Credit request
+
+```text
+GET https://ai-gateway.vercel.sh/v1/credits
+Authorization: Bearer <AI Gateway API Key>
+```
+
+HTTP timeout: 15 seconds. This is the team-level AI Gateway balance, not general Vercel hosting bills or external BYOK provider balances.
+
+### Parse / normalize
+
+Source fields are USD amount strings:
+
+```text
+balance    → remainingCredits
+total_used → usedCredits (lifetime usage)
+currency   = USD
+```
+
+`formattedRemaining` displays the balance as `$0.00`-style text. `totalCredits` is omitted because Vercel does not report the total purchased/granted amount. Blank, missing, nonnumeric, negative, or nonfinite amounts raise `SCHEMA_CHANGED`; a real zero balance is valid.
+
+An absent key raises `KEY_MISSING`, HTTP 401 raises `KEY_INVALID`, and other HTTP failures remain unclassified.
+
+Official references:
+
+- https://vercel.com/docs/ai-gateway/sdks-and-apis/rest-api
+- https://vercel.com/docs/ai-gateway/authentication-and-byok
 
 ---
 
