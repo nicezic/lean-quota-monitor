@@ -3,7 +3,7 @@
   "displayName": "Lean Quota Monitor",
   "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and Devin.",
   "icon": "images/icon.png",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "nicezic",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
