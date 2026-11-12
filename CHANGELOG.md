@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.6 - 2026-11-12
+
+- Move build tooling to Node 26 LTS, pnpm 12, and vsce 4.
+- Pin runtime type definitions to the minimum supported VS Code (1.96, Node 20) so newer APIs are caught at compile time.
+
 ## 0.1.5 - 2026-11-12
 
 - Add Qwen Token Plan provider (monthly quota via Bailian CLI console login).
