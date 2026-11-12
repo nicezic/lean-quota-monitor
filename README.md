@@ -2,7 +2,7 @@
 
 **One status bar. All your AI quotas.**
 
-Lean Quota Monitor is a VS Code AI usage and quota monitor for Codex, Claude Code, GitHub Copilot, Gemini / Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and Devin.
+Lean Quota Monitor is a VS Code AI usage and quota monitor for Codex, Claude Code, GitHub Copilot, Gemini / Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, Devin, and Qwen.
 
 Track subscription usage limits, remaining quota, reset times, and credits directly in the VS Code Status Bar. Provider acquisition currently supports **Linux / Remote WSL**, **native Windows (Beta)**, and **macOS partial Beta** Extension Hosts. macOS currently supports Codex, AGY, and Copilot; Claude subscription quota is not enabled there because Claude Code stores its credentials in macOS Keychain.
 
@@ -30,6 +30,8 @@ Quota providers show the remaining percentage, window type (`5h`, `1d`, `1w`, `1
 | Anomaly | OpenCode Go | `OCG` | Go API Key in VS Code SecretStorage | 5h / 1w / 1m windows |
 | DeepSeek | Balance | `DS` | API Key in VS Code SecretStorage or `DEEPSEEK_API_KEY` | |
 | Cognition | Devin | `DEV` | Local Devin CLI login | 1w / 1d windows |
+| Alibaba | Qwen Token Plan | `QWEN` | Bailian CLI console login | 1m window |
+| Alibaba | Qwen Coding Plan | `QWC` | Bailian CLI console login | 5h / 1w / 1m windows |
 
 Exact acquisition and normalization contracts live in [`docs/provider-acquisition-spec.md`](docs/provider-acquisition-spec.md).
 
@@ -70,7 +72,7 @@ For first-time setup of extension-owned keys, if the Provider is not visible, op
 
 The raw key is stored in VS Code `SecretStorage`; it is not written to normal settings or logs.
 
-Codex, Claude, Copilot, AGY, and Devin reuse their existing local login/CLI authority (or GitHub Token for Copilot). Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
+Codex, Claude, Copilot, AGY, Devin, and Qwen reuse their existing local login/CLI authority (or GitHub Token for Copilot). Troubleshoot shows the actual file or executable lookup used by the current Extension Host.
 
 Detailed recovery behavior is documented in [`docs/troubleshooting.md`](docs/troubleshooting.md).
 

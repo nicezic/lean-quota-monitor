@@ -69,6 +69,8 @@ const PROVIDER_SUPPORTED_WINDOWS: Partial<Record<ProviderId, readonly WindowType
   opencode: ['5hour', '1week', '1month'],
   devin: ['1day', '1week'],
   copilot: ['1month'],
+  qwen: ['1month'],
+  qwenCoding: ['5hour', '1week', '1month'],
 };
 
 const WINDOW_DESCRIPTIONS: Record<WindowType, string> = {

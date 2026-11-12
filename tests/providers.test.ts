@@ -16,6 +16,7 @@ import { parseMiniMaxQuota } from '../src/providers/minimax.ts';
 import { parseCodexAppServerRateLimits, parseCodexDirectQuota } from '../src/providers/openai.ts';
 import { parseOpenCodeGoUsage } from '../src/providers/opencode.ts';
 import { parseOpenRouterCredits } from '../src/providers/openrouter.ts';
+import { parseQwenCodingPlanQuota, parseQwenTokenPlanQuota } from '../src/providers/qwen.ts';
 import { parseVercelCredits } from '../src/providers/vercel.ts';
 import { parseZaiQuota } from '../src/providers/zai.ts';
 
@@ -335,5 +336,68 @@ test('Copilot parses premium interactions and rejects free tier with PLAN_REQUIR
         },
       }),
     (e) => (e as { code?: string }).code === 'PLAN_REQUIRED',
+  );
+});
+
+test('Qwen Token Plan parses the measured monthly response and rejects missing quota data', () => {
+  // Live-verified `bl usage token-plan --output json` response (international console, 2026-11-12).
+  const snapshot = parseQwenTokenPlanQuota({
+    per1MonthPercentage: 0.0016239421280377778,
+    per1MonthResetTime: 1797091200000,
+    hasQuotaData: true,
+  });
+
+  assert.equal(snapshot.providerId, 'qwen');
+  assert.equal(snapshot.presentedWindow, '1month');
+  assert.deepEqual(
+    snapshot.windows.map((x) => [x.type, x.usedPercent, x.remainingPercent]),
+    [['1month', 0.16239421280377778, 99.83760578719622]],
+  );
+  assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date(1797091200000).toISOString());
+
+  // hasQuotaData=false is a defined no-data contract (also covers "may be unlimited").
+  assert.throws(
+    () => parseQwenTokenPlanQuota({ hasQuotaData: false }),
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
+  );
+});
+
+test('Qwen Coding Plan parses CLI fixture windows and flags missing subscription', () => {
+  // Upstream bailian-cli fixture (coding-plan-usage.test.ts); not live-verified yet.
+  const snapshot = parseQwenCodingPlanQuota({
+    instanceType: 'pro',
+    per5Hour: { usedQuota: 38, totalQuota: 100, percentage: 0.38, resetTime: 1786000000000 },
+    perWeek: { usedQuota: 500, totalQuota: 1000, percentage: 0.5, resetTime: 1786100000000 },
+    perBillMonth: { usedQuota: 950, totalQuota: 1000, percentage: 0.95, resetTime: 1786200000000 },
+  });
+
+  assert.equal(snapshot.providerId, 'qwenCoding');
+  assert.equal(snapshot.presentedWindow, '1month');
+  assert.deepEqual(
+    snapshot.windows.map((x) => [x.type, x.usedPercent, x.remainingPercent]),
+    [
+      ['1month', 95, 5],
+      ['1week', 50, 50],
+      ['5hour', 38, 62],
+    ],
+  );
+  assert.equal(snapshot.windows[0].resetAt?.toISOString(), new Date(1786200000000).toISOString());
+
+  // CLI contract: {} means no VALID Coding Plan instance (live-verified).
+  assert.throws(
+    () => parseQwenCodingPlanQuota({}),
+    (e) => (e as { code?: string }).code === 'PLAN_REQUIRED',
+  );
+
+  // Defined contract: an instance without valid quota counters fails closed.
+  assert.throws(
+    () =>
+      parseQwenCodingPlanQuota({
+        instanceType: 'pro',
+        per5Hour: {},
+        perWeek: {},
+        perBillMonth: {},
+      }),
+    (e) => (e as { code?: string }).code === 'SCHEMA_CHANGED',
   );
 });

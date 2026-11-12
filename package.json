@@ -1,7 +1,7 @@
 {
   "name": "lean-quota-monitor",
   "displayName": "Lean Quota Monitor",
-  "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, and Devin.",
+  "description": "Monitor AI usage limits, quotas, reset times, and credits in the VS Code status bar — Codex, Claude Code, GitHub Copilot, Gemini/Antigravity, MiniMax, Kimi, GLM, OpenRouter, Vercel AI Gateway, OpenCode Go, DeepSeek, Devin, and Qwen.",
   "icon": "images/icon.png",
   "version": "0.1.4",
   "publisher": "nicezic",
@@ -53,6 +53,9 @@
     "opencode",
     "deepseek",
     "devin",
+    "qwen",
+    "alibaba",
+    "bailian",
     "vercel",
     "vercel ai gateway",
     "vibe coding"
@@ -129,7 +132,9 @@
               "opencode",
               "deepseek",
               "devin",
-              "copilot"
+              "copilot",
+              "qwen",
+              "qwenCoding"
             ],
             "items": {
               "type": "string"
@@ -523,6 +528,76 @@
             ],
             "default": "auto",
             "description": "Default Quota Window On Status Bar for GitHub Copilot. 'auto' uses the provider default (1month); a window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Qwen Token Plan",
+        "order": 91,
+        "properties": {
+          "leanQuotaMonitor.qwenProviderName": {
+            "type": "string",
+            "default": "Qwen Token Plan",
+            "description": "Display name shown in hover details for Qwen Token Plan quota (default: Qwen Token Plan).",
+            "order": 10
+          },
+          "leanQuotaMonitor.qwenStatusBarName": {
+            "type": "string",
+            "default": "QWEN",
+            "description": "Status bar name for Qwen Token Plan quota (default: QWEN).",
+            "order": 20
+          },
+          "leanQuotaMonitor.qwenVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Qwen Token Plan quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          },
+          "leanQuotaMonitor.qwenPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "1month"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Qwen Token Plan. 'auto' uses the provider default (1month); a window at or below the Low Quota Warning Threshold preempts with ⚠️.",
+            "order": 40
+          }
+        }
+      },
+      {
+        "title": "Lean Quota Monitor: Qwen Coding Plan",
+        "order": 92,
+        "properties": {
+          "leanQuotaMonitor.qwenCodingProviderName": {
+            "type": "string",
+            "default": "Qwen Coding Plan",
+            "description": "Display name shown in hover details for Qwen Coding Plan quota (default: Qwen Coding Plan).",
+            "order": 10
+          },
+          "leanQuotaMonitor.qwenCodingStatusBarName": {
+            "type": "string",
+            "default": "QWC",
+            "description": "Status bar name for Qwen Coding Plan quota (default: QWC).",
+            "order": 20
+          },
+          "leanQuotaMonitor.qwenCodingVisible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Show Qwen Coding Plan quota in the Status Bar. Hover details remain visible.",
+            "order": 30
+          },
+          "leanQuotaMonitor.qwenCodingPrimaryWindow": {
+            "type": "string",
+            "enum": [
+              "auto",
+              "5hour",
+              "1week",
+              "1month"
+            ],
+            "default": "auto",
+            "description": "Default Quota Window On Status Bar for Qwen Coding Plan. 'auto' uses the provider default (longest duration: 1month); a shorter window at or below the Low Quota Warning Threshold preempts with ⚠️.",
             "order": 40
           }
         }

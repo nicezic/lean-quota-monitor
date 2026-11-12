@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5 - 2026-11-12
+
+- Add Qwen Token Plan provider (monthly quota via Bailian CLI console login).
+- Add Qwen Coding Plan provider (5h / 1w / 1m windows via Bailian CLI console login).
+
 ## 0.1.4 - 2026-10-20
 
 - Add Vercel AI Gateway credit balance provider with API Key setup in VS Code SecretStorage.

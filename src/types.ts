@@ -10,7 +10,9 @@ export type ProviderId =
   | 'opencode'
   | 'deepseek'
   | 'devin'
-  | 'copilot';
+  | 'copilot'
+  | 'qwen'
+  | 'qwenCoding';
 
 export const WINDOW_TYPES = {
   '5hour': { short: '5h' },

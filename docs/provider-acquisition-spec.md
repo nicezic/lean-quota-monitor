@@ -20,6 +20,8 @@ Built-in providers:
 - DeepSeek
 - Devin
 - GitHub Copilot
+- Alibaba Qwen Token Plan
+- Alibaba Qwen Coding Plan
 
 Custom Providers are intentionally outside this contract. They are opaque executable status sources and own their own credentials; see [`adr/0001-live-status-and-native-management.md`](adr/0001-live-status-and-native-management.md).
 
@@ -47,7 +49,7 @@ ProviderSnapshot
 
 `QuotaSnapshot` represents reset-window subscription limits. Supported window types are strictly enumerated as `WindowType` (`'5hour' | '1day' | '1week' | '1month'`). The status bar presentation target is designated by `presentedWindow`, determined via preemption rules (`remainingPercent` at or below the configured Low Quota Warning Threshold elevates an urgent shorter window; otherwise provider primary window, overridable per provider via `*PrimaryWindow` settings). `CreditSnapshot` represents monetary credit state; Remaining Credit is the primary product-facing credit metric. Credit is not converted into a percentage or reset window.
 
-Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, Devin, and GitHub Copilot return `QuotaSnapshot`; OpenRouter, Vercel AI Gateway, and DeepSeek return `CreditSnapshot`. `totalCredits` is optional when the API does not report a real credit total; it must not be fabricated from balance plus lifetime usage.
+Implementation contract: `src/types.ts`. Codex, Claude, Gemini, MiniMax, Kimi, Z.AI, OpenCode Go, Devin, GitHub Copilot, Qwen Token Plan, and Qwen Coding Plan return `QuotaSnapshot`; OpenRouter, Vercel AI Gateway, and DeepSeek return `CreditSnapshot`. `totalCredits` is optional when the API does not report a real credit total; it must not be fabricated from balance plus lifetime usage.
 
 A number must actually be present in the response. A missing value is never treated as zero:
 
@@ -78,6 +80,8 @@ OpenCode   opencode-go-usage-api
 DeepSeek   deepseek-balance-api
 Devin      devin-live-rpc → devin-local-cache
 Copilot    gh-cli → secret-token
+Qwen       qwen-token-plan-cli
+QwenCoding qwen-coding-plan-cli
 ```
 
 These ids are runtime diagnostic metadata, not user-facing Provider identities.
@@ -798,6 +802,120 @@ Normalization:
 - **Window mapping**: Normalized to a `1month` window (`WINDOW_TYPES['1month']`, short `1m`).
 - **Reset time**: Parsed from `quota_reset_date_utc` (or `quota_reset_date`) as `Date`.
 - **HTTP status**: 401 or 403 raises `AUTH_REQUIRED` ("GitHub token rejected or expired").
+
+---
+
+## Alibaba Qwen Token Plan
+
+Implementation: `src/providers/qwen.ts`
+
+### Credential authority
+
+The extension does not own a Qwen credential. Authentication and region stay inside the installed **Bailian CLI** (`bl`), the official Alibaba Cloud Model Studio CLI. Console login saves the console site, and usage commands follow it:
+
+```text
+bl auth login --console                               # domestic (bailian.console.aliyun.com)
+bl auth login --console --console-site international  # international (modelstudio.console.alibabacloud.com)
+```
+
+Region is a property of the CLI login, not product configuration. The international site is live-verified; the domestic site uses the same command path but is not live-verified yet. A Token Plan API key alone is not a verified quota credential — the usage command requires console auth.
+
+Required executable:
+
+```text
+bl
+```
+
+### Quota request
+
+The extension executes the CLI directly with `execFile`, not through a shell:
+
+```bash
+bl usage token-plan --output json
+```
+
+Process timeout: 30 seconds. Maximum captured stdout: 1 MiB.
+
+### Parse / normalize
+
+The CLI keeps the console API's `per*` fields. Windows are recognized by field name, never by position:
+
+```text
+per5HourPercentage  / per5HourResetTime   → 5hour
+per1DayPercentage   / per1DayResetTime    → 1day
+per1WeekPercentage  / per1WeekResetTime   → 1week
+per1MonthPercentage / per1MonthResetTime  → 1month
+```
+
+Personal plans are currently metered monthly; the other keys are recognized because the CLI discovers windows dynamically.
+
+```text
+Percentage
+  → finite 0..1 usage ratio (out of range → window invalid)
+  → usedPercent = ratio × 100
+  → remainingPercent = 100 - usedPercent
+
+ResetTime
+  → epoch milliseconds → Date (omitted when invalid)
+```
+
+`hasQuotaData: false` is not a subscription signal: the CLI also sets it when a response carries only a reset time ("may be unlimited"). A response with no valid window raises `SCHEMA_CHANGED`.
+
+### Failure classification
+
+```text
+bl not in PATH (ENOENT)        → CLI_NOT_FOUND
+exit code 3 (no console token) → AUTH_REQUIRED
+other non-zero exit            → unclassified (exit code only; raw stderr is not collected)
+invalid JSON output            → SCHEMA_CHANGED
+```
+
+Current references:
+
+- https://www.alibabacloud.com/help/en/model-studio/cli/usage-quota
+- https://www.alibabacloud.com/help/en/model-studio/token-plan-overview
+- https://github.com/modelstudioai/cli (`packages/commands/src/commands/usage/token-plan.ts`)
+
+---
+
+## Alibaba Qwen Coding Plan
+
+Implementation: `src/providers/qwen.ts`
+
+### Credential authority
+
+The same Bailian CLI console login as Token Plan. The CLI selects the Coding Plan commodity code from the saved console site (`sfm_codingplan_public_cn` / `sfm_codingplan_public_intl`), so no region configuration exists here either.
+
+### Quota request
+
+```bash
+bl usage coding-plan --output json
+```
+
+Process timeout: 30 seconds. Maximum captured stdout: 1 MiB.
+
+### Parse / normalize
+
+```text
+per5Hour.percentage     / resetTime → 5hour
+perWeek.percentage      / resetTime → 1week
+perBillMonth.percentage / resetTime → 1month
+```
+
+`percentage` is a 0..1 usage ratio that the CLI computes only when used and total quota are both present with a positive total. Windows without a valid ratio are skipped; usage is never fabricated as 0%.
+
+```text
+{} (empty object)                     → PLAN_REQUIRED (CLI contract: no VALID instance)
+instance present, no valid window     → SCHEMA_CHANGED
+```
+
+Verification status: the no-subscription response (`{}` → `PLAN_REQUIRED`) is live-verified. The success-window parser follows the upstream CLI response contract and fixtures; a live success response is not verified yet because no active Coding Plan subscription was available at implementation time. Unknown shapes fail closed.
+
+Current references:
+
+- https://www.alibabacloud.com/help/en/model-studio/cli/usage-quota
+- https://github.com/modelstudioai/cli (`packages/commands/src/commands/usage/coding-plan.ts`)
+- https://github.com/steipete/CodexBar/blob/main/docs/alibaba-coding-plan.md (console endpoint context; its browser-cookie path is intentionally not used here)
 
 ---
 

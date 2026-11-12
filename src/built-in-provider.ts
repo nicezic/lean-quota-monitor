@@ -9,6 +9,7 @@ import { miniMaxProvider } from './providers/minimax.ts';
 import { openAIProvider } from './providers/openai.ts';
 import { openCodeProvider } from './providers/opencode.ts';
 import { openRouterProvider } from './providers/openrouter.ts';
+import { qwenCodingProvider, qwenProvider } from './providers/qwen.ts';
 import { vercelProvider } from './providers/vercel.ts';
 import { zaiProvider } from './providers/zai.ts';
 import type { ProviderId } from './types.ts';
@@ -26,6 +27,8 @@ export const BUILT_IN_PROVIDERS: readonly BuiltInProviderDefinition[] = [
   deepSeekProvider,
   devinProvider,
   copilotProvider,
+  qwenProvider,
+  qwenCodingProvider,
 ];
 
 const BY_ID = new Map(BUILT_IN_PROVIDERS.map((provider) => [provider.id, provider]));
